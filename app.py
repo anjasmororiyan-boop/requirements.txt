@@ -8,9 +8,7 @@ if 'db_bahan' not in st.session_state:
 # Database awal dengan kolom harga_per_kg
 st.session_state.db_bahan = pd.DataFrame([
 {"nama": "Dada Ayam", "kalori": 165, "protein": 31, "lemak":
-
 3.6, "karbo": 0, "bdd": 100, "harga_per_kg": 55000},
-
 {"nama": "Beras Putih", "kalori": 130, "protein": 2.7,
 "lemak": 0.3, "karbo": 28, "bdd": 100, "harga_per_kg": 15000},
 ])
@@ -30,13 +28,8 @@ st.subheader("Daftar Bahan Saat Ini")
 st.dataframe(st.session_state.db_bahan)
 with col2:
 st.subheader("📥 Import Bulk (CSV)")
-st.write("Format: nama, kalori, protein, lemak, karbo, bdd,
-
-harga_per_kg")
-
-uploaded_file = st.file_uploader("Upload File CSV",
-
-type=["csv"])
+st.write("Format: nama, kalori, protein, lemak, karbo, bdd, harga_per_kg")
+uploaded_file = st.file_uploader("Upload File CSV", type=["csv"])
 
 if uploaded_file:
 df_new = pd.read_csv(uploaded_file)
