@@ -1,8 +1,17 @@
 import streamlit as st
 import pandas as pd
+import google.generativeai as genai
+import json
+import re
+
+# --- KONFIGURASI AI ---
+# Masukkan API Key Anda di sini atau via Streamlit Secrets
+API_KEY = "MASUKKAN_GEMINI_API_KEY_ANDA" 
+genai.configure(api_key=API_KEY)
+model = genai.GenerativeModel('gemini-1.5-flash')
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v2", layout="wide")
+st.set_page_config(page_title="NutriCost Pro AI", layout="wide")
 
 # --- DATABASE STATE ---
 if 'db_bahan' not in st.session_state:
@@ -10,76 +19,101 @@ if 'db_bahan' not in st.session_state:
         "nama", "satuan_uom", "berat_bersih_gr", "harga_beli", "total_kalori", "total_protein", "total_lemak", "total_karbo", "bdd"
     ])
 
-# Temp storage untuk hasil kalkulasi agar bisa ditampilkan di UI sebelum disimpan
 if 'calc_result' not in st.session_state:
     st.session_state.calc_result = {"kal": 0.0, "pro": 0.0, "lem": 0.0, "kar": 0.0}
 
-# --- SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost Pro v2.0")
+if 'ai_raw' not in st.session_state:
+    st.session_state.ai_raw = {"kal": 0.0, "pro": 0.0, "lem": 0.0, "kar": 0.0}
+
+# --- FUNGSI AI UNTUK MENCARI NUTRISI ---
+def get_ai_nutrition(food_name):
+    prompt = f"""
+    Berikan data nutrisi standar per 100g untuk bahan makanan: {food_name}.
+    Respon harus dalam format JSON murni:
+    {{"kalori": 0.0, "protein": 0.0, "lemak": 0.0, "karbo": 0.0}}
+    Pastikan angka realistis berdasarkan database gizi internasional/Kemenkes.
+    """
+    try:
+        response = model.generate_content(prompt)
+        # Membersihkan output AI agar menjadi JSON valid
+        json_str = re.search(r'\{.*\}', response.text, re.DOTALL).group()
+        return json.loads(json_str)
+    except:
+        return None
+
+# --- SIDEBAR ---
+st.sidebar.title("NutriCost Pro AI v3.0")
 nav = st.sidebar.radio("Menu Utama", ["Master Bahan Baku", "Master Item (Single Menu)", "Set Menu (Paket)"])
 
 # --- MODUL 1: MASTER BAHAN BAKU ---
 if nav == "Master Bahan Baku":
-    st.title("📦 Management & Kalkulasi Bahan Baku")
+    st.title("📦 Management Bahan Baku & AI Integration")
     
-    with st.expander("➕ Tambah / Kalkulasi Bahan Baru", expanded=True):
-        # Bagian 1: Input Data Mentah
-        with st.container():
-            c1, c2, c3 = st.columns(3)
-            nama_b = c1.text_input("Nama Bahan", placeholder="Contoh: Fillet Paha Ayam")
-            uom = c2.selectbox("Satuan (UOM)", ["kg", "gr", "L", "ml", "pcs", "pack"])
-            berat_gr = c3.number_input("Berat Bersih per Satuan (gram/ml)", min_value=0.01, value=1.0)
-            
-            c4, c5 = st.columns(2)
-            harga = c4.number_input("Harga Beli per Satuan (Rp)", min_value=0.0)
-            bdd = c5.number_input("BDD (%)", min_value=1, max_value=100, value=100)
-            
-            st.markdown("---")
-            st.write("**Input Nutrisi Dasar (Referensi per 100g)**")
-            n1, n2, n3, n4 = st.columns(4)
-            ref_kal = n1.number_input("Kalori Dasar", min_value=0.0)
-            ref_pro = n2.number_input("Protein Dasar", min_value=0.0)
-            ref_lem = n3.number_input("Lemak Dasar", min_value=0.0)
-            ref_kar = n4.number_input("Karbo Dasar", min_value=0.0)
+    with st.expander("➕ Tambah Bahan dengan AI Auto-Fill", expanded=True):
+        c1, c2, c3 = st.columns([2, 1, 1])
+        nama_b = c1.text_input("Nama Bahan", placeholder="Contoh: Fillet Paha Ayam")
+        
+        # TOMBOL AI
+        if c1.button("✨ Cari Nutrisi Otomatis (AI)"):
+            if nama_b:
+                with st.spinner("AI sedang mencari data gizi standar..."):
+                    data_gizi = get_ai_nutrition(nama_b)
+                    if data_gizi:
+                        st.session_state.ai_raw['kal'] = float(data_gizi.get('kalori', 0))
+                        st.session_state.ai_raw['pro'] = float(data_gizi.get('protein', 0))
+                        st.session_state.ai_raw['lem'] = float(data_gizi.get('lemak', 0))
+                        st.session_state.ai_raw['kar'] = float(data_gizi.get('karbo', 0))
+                        st.success(f"Data ditemukan untuk {nama_b}!")
+                    else:
+                        st.error("AI gagal menemukan data. Silakan input manual.")
+            else:
+                st.warning("Masukkan nama bahan dulu!")
 
-        # Tombol Kalkulasi
-        if st.button("🔄 Jalankan Kalkulasi Nutrisi"):
-            # Rumus: (Nutrisi Dasar / 100) * Berat Bersih * (BDD/100)
+        uom = c2.selectbox("Satuan (UOM)", ["kg", "gr", "L", "ml", "pcs", "pack"])
+        berat_gr = c3.number_input("Berat per Satuan (gr/ml)", min_value=0.01, value=1.0)
+        
+        c4, c5 = st.columns(2)
+        harga = c4.number_input("Harga Beli per Satuan (Rp)", min_value=0.0)
+        bdd = c5.number_input("BDD (%)", min_value=1, max_value=100, value=100)
+
+        st.markdown("---")
+        st.write("**Nutrisi Dasar per 100g (Auto-filled by AI)**")
+        n1, n2, n3, n4 = st.columns(4)
+        ref_kal = n1.number_input("Kalori Dasar", value=st.session_state.ai_raw['kal'])
+        ref_pro = n2.number_input("Protein Dasar", value=st.session_state.ai_raw['pro'])
+        ref_lem = n3.number_input("Lemak Dasar", value=st.session_state.ai_raw['lem'])
+        ref_kar = n4.number_input("Karbo Dasar", value=st.session_state.ai_raw['kar'])
+
+        # TOMBOL KALKULASI AKHIR
+        if st.button("🔄 Jalankan Kalkulasi Final"):
             ratio = berat_gr / 100
             bdd_fac = bdd / 100
             st.session_state.calc_result["kal"] = ref_kal * ratio * bdd_fac
             st.session_state.calc_result["pro"] = ref_pro * ratio * bdd_fac
             st.session_state.calc_result["lem"] = ref_lem * ratio * bdd_fac
             st.session_state.calc_result["kar"] = ref_kar * ratio * bdd_fac
-            st.success("Kalkulasi Selesai!")
+            st.info("Kalkulasi per Satuan Selesai!")
 
         st.markdown("---")
-        st.write("**Hasil Kalkulasi Sistem (Disabled/Read-Only)**")
-        
-        # Bagian 2: Menampilkan Hasil yang di-Disable
+        st.write("**Hasil Akhir per Satuan (Read-Only)**")
         res1, res2, res3, res4 = st.columns(4)
         out_kal = res1.number_input("Total Kalori", value=st.session_state.calc_result["kal"], disabled=True)
         out_pro = res2.number_input("Total Protein", value=st.session_state.calc_result["pro"], disabled=True)
         out_lem = res3.number_input("Total Lemak", value=st.session_state.calc_result["lem"], disabled=True)
         out_kar = res4.number_input("Total Karbo", value=st.session_state.calc_result["kar"], disabled=True)
 
-        if st.button("💾 Simpan ke Database Master"):
-            if not nama_b:
-                st.error("Nama bahan tidak boleh kosong!")
-            else:
-                new_row = {
-                    "nama": nama_b, "satuan_uom": uom, "berat_bersih_gr": berat_gr,
-                    "harga_beli": harga, "total_kalori": out_kal, 
-                    "total_protein": out_pro, "total_lemak": out_lem, 
-                    "total_karbo": out_kar, "bdd": bdd
-                }
-                st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, pd.DataFrame([new_row])], ignore_index=True)
-                # Reset hasil kalkulasi setelah simpan
-                st.session_state.calc_result = {"kal": 0.0, "pro": 0.0, "lem": 0.0, "kar": 0.0}
-                st.success(f"Data {nama_b} Berhasil Disimpan!")
-                st.rerun()
+        if st.button("💾 Simpan ke Master Database"):
+            new_row = {
+                "nama": nama_b, "satuan_uom": uom, "berat_bersih_gr": berat_gr,
+                "harga_beli": harga, "total_kalori": out_kal, 
+                "total_protein": out_pro, "total_lemak": out_lem, 
+                "total_karbo": out_kar, "bdd": bdd
+            }
+            st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, pd.DataFrame([new_row])], ignore_index=True)
+            st.success("Tersimpan!")
+            st.rerun()
 
-    st.subheader("📋 Data Master Bahan Baku")
+    st.subheader("📋 Master Data")
     st.dataframe(st.session_state.db_bahan, use_container_width=True)
 
 # --- MODUL 2: MASTER ITEM (SINGLE MENU) ---
