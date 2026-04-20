@@ -48,18 +48,11 @@ selected_bahan = st.multiselect("Pilih Bahan Baku",
 
 st.session_state.db_bahan['nama'].tolist())
 
-st.write("Tentukan berat (gram) untuk masing-masing bahan
-
-setelah form ini disubmit.")
-
-submit_initial = st.form_submit_button("Lanjut ke Detail
-
-Porsi")
+st.write("Tentukan berat (gram) untuk masing-masing bahan setelah form ini disubmit.")
+submit_initial = st.form_submit_button("Lanjut ke Detail Porsi")
 if selected_bahan:
 st.subheader(f"Detail Resep: {nama_menu}")
-total_nutrisi = {'kal': 0, 'pro': 0, 'lem': 0, 'kar': 0,
-
-'cost': 0}
+total_nutrisi = {'kal': 0, 'pro': 0, 'lem': 0, 'kar': 0, 'cost': 0}
 
 for b in selected_bahan:
 row =
