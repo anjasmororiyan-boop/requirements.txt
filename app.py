@@ -56,13 +56,9 @@ total_nutrisi = {'kal': 0, 'pro': 0, 'lem': 0, 'kar': 0, 'cost': 0}
 
 for b in selected_bahan:
 row =
-
 st.session_state.db_bahan[st.session_state.db_bahan['nama'] ==
 b].iloc[0]
-
-berat = st.number_input(f"Berat {b} (gram)",
-
-min_value=0.0, value=100.0, key=b)
+berat = st.number_input(f"Berat {b} (gram)", min_value=0.0, value=100.0, key=b)
 
 # Kalkulasi
 ratio = berat / 100
@@ -72,7 +68,6 @@ total_nutrisi['pro'] += row['protein'] * ratio * bdd
 total_nutrisi['lem'] += row['lemak'] * ratio * bdd
 total_nutrisi['kar'] += row['karbo'] * ratio * bdd
 total_nutrisi['cost'] += (berat / 1000) *
-
 row['harga_per_kg']
 
 if st.button("Simpan ke Master Item"):
@@ -91,47 +86,35 @@ st.success(f"'{nama_menu}' tersimpan di Master Item!")
 elif nav == "Set Menu (Paket)":
 st.title("🍱 Pembuatan Set Menu (Aggregator)")
 if not st.session_state.db_menu:
-st.warning("Silakan buat Single Menu terlebih dahulu di Master
-
-Item.")
+st.warning("Silakan buat Single Menu terlebih dahulu di Master Item.")
 else:
-nama_set = st.text_input("Nama Paket (Contoh: Paket Sehat
-
-Siang)")
+nama_set = st.text_input("Nama Paket (Contoh: Paket Sehat Siang)")
 
 pilihan = st.multiselect("Ambil dari Master Item",
 [m['nama_menu'] for m in st.session_state.db_menu])
 
 if pilihan:
-res_set = {'kal': 0, 'pro': 0, 'lem': 0, 'kar': 0, 'hpp':
-
-0}
+res_set = {'kal': 0, 'pro': 0, 'lem': 0, 'kar': 0, 'hpp': 0}
 
 for p in pilihan:
 m_data = next(item for item in
 st.session_state.db_menu if item["nama_menu"] == p)
 res_set['kal'] += m_data['total_kalori']
-
 res_set['pro'] += m_data['total_protein']
 res_set['lem'] += m_data['total_lemak']
 res_set['kar'] += m_data['total_karbo']
 res_set['hpp'] += m_data['total_hpp']
+
 # Tampilan Hasil
 c1, c2, c3 = st.columns(3)
 c1.metric("Total Kalori", f"{res_set['kal']} kkal")
 c2.metric("Total HPP", f"Rp {res_set['hpp']:,.0f}")
 c3.metric("Saran Harga Jual (FC 30%)", f"Rp
-
 {res_set['hpp']/0.3:,.0f}")
-
-fig = px.pie(values=[res_set['pro'], res_set['lem'],
-
-res_set['kar']],
-
-names=['Protein', 'Lemak', 'Karbo'],
-
-title="Komposisi Nutrisi Paket")
+fig = px.pie(values=[res_set['pro'], res_set['lem'], res_set['kar']],
+names=['Protein', 'Lemak', 'Karbo'], title="Komposisi Nutrisi Paket")
 st.plotly_chart(fig)
+
 # --- MODUL 4: DASHBOARD ANALISIS ---
 elif nav == "Dashboard Analisis":
 st.title("📊 Dashboard Master Item")
