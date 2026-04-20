@@ -19,8 +19,8 @@ if 'db_menu' not in st.session_state:
 st.session_state.db_menu = []
 # --- SIDEBAR NAVIGASI ---
 st.sidebar.title("NutriCost Pro v1.0")
-nav = st.sidebar.radio("Menu Utama", ["Master Bahan Baku", "Master
-Item (Single Menu)", "Set Menu (Paket)", "Dashboard Analisis"])
+nav = st.sidebar.radio("Menu Utama", ["Master Bahan Baku", "Master Item (Single Menu)",
+"Set Menu (Paket)", "Dashboard Analisis"])
 # --- MODUL 1: MASTER BAHAN BAKU (IMPORT) ---
 if nav == "Master Bahan Baku":
 st.title("📦 Management Bahan Baku")
