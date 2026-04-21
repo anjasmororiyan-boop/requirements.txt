@@ -1,141 +1,121 @@
 import streamlit as st
 import pandas as pd
+import plotly.express as px
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v5.5", layout="wide")
+st.set_page_config(page_title="NutriCost Pro v6.0", layout="wide")
 
-# --- INISIALISASI DATABASE ---
+# --- DATABASE HARDCODE (DATA NASIONAL LENGKAP) ---
 if 'db_bahan' not in st.session_state:
-    st.session_state.db_bahan = pd.DataFrame()
+    raw_data = [
+        {"nama": "Beras giling, mentah", "kalori": 357, "protein": 8.4, "lemak": 1.7, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 15000},
+        {"nama": "Beras giling var pelita, mentah", "kalori": 369, "protein": 9.5, "lemak": 1.4, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Beras giling var rojolele, mentah", "kalori": 357, "protein": 8.4, "lemak": 1.7, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Beras hitam, mentah", "kalori": 351, "protein": 8.0, "lemak": 1.3, "karbo": 76.9, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Beras jagung kuning, kering, mentah", "kalori": 358, "protein": 5.5, "lemak": 0.1, "karbo": 82.7, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Beras jagung putih, kering, mentah", "kalori": 307, "protein": 4.8, "lemak": 0.1, "karbo": 71.8, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Beras ketan hitam tumbuk, mentah", "kalori": 360, "protein": 8.0, "lemak": 2.3, "karbo": 74.5, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Beras ketan putih tumbuk, mentah", "kalori": 361, "protein": 7.4, "lemak": 0.8, "karbo": 78.4, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Asam payak, segar", "kalori": 135, "protein": 0.8, "lemak": 0.4, "karbo": 32.1, "bdd": 95, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Bawang merah, segar", "kalori": 46, "protein": 1.5, "lemak": 0.3, "karbo": 9.2, "bdd": 90, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Bawang putih, segar", "kalori": 112, "protein": 4.5, "lemak": 0.2, "karbo": 23.1, "bdd": 88, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Boros kunci, segar", "kalori": 40, "protein": 1.0, "lemak": 0.8, "karbo": 7.2, "bdd": 80, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Boros laja (lengkuas), segar", "kalori": 26, "protein": 1.0, "lemak": 0.3, "karbo": 4.7, "bdd": 80, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Cabai gembor merah, segar", "kalori": 38, "protein": 1.6, "lemak": 0.8, "karbo": 6.3, "bdd": 89, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Cabai hijau, segar", "kalori": 26, "protein": 0.7, "lemak": 0.3, "karbo": 5.2, "bdd": 82, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Cabai merah, kering", "kalori": 367, "protein": 15.9, "lemak": 6.2, "karbo": 61.8, "bdd": 85, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Cabai merah, segar", "kalori": 36, "protein": 1.0, "lemak": 0.3, "karbo": 7.3, "bdd": 85, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Cabai rawit, segar", "kalori": 120, "protein": 4.7, "lemak": 2.4, "karbo": 19.9, "bdd": 85, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Ayam Paha", "kalori": 165, "protein": 31.0, "lemak": 3.6, "karbo": 0.0, "bdd": 100, "uom": "kg", "berat": 1000, "harga": 55000},
+        {"nama": "Daging Sapi", "kalori": 249, "protein": 18.0, "lemak": 14.0, "karbo": 0.0, "bdd": 100, "uom": "kg", "berat": 1000, "harga": 120000},
+        {"nama": "Telur Ayam", "kalori": 154, "protein": 12.4, "lemak": 10.8, "karbo": 0.7, "bdd": 90, "uom": "kg", "berat": 1000, "harga": 28000},
+        {"nama": "Minyak Goreng", "kalori": 862, "protein": 0.0, "lemak": 100.0, "karbo": 0.0, "bdd": 100, "uom": "L", "berat": 1000, "harga": 18000}
+    ]
+    st.session_state.db_bahan = pd.DataFrame(raw_data)
 
 if 'db_menu' not in st.session_state:
     st.session_state.db_menu = []
 
-# --- SIDEBAR ---
-st.sidebar.title("NutriCost Pro v5.5")
-nav = st.sidebar.radio("Menu Utama", ["Master & Edit Bahan", "Master Item (Single Menu)", "Set Menu (Paket)"])
+# --- NAVIGASI ---
+st.sidebar.title("NutriCost v6.0")
+nav = st.sidebar.radio("Navigasi", ["Database & Harga", "Master Item (Single Menu)", "Set Menu (Paket)"])
 
-# --- MODUL 1: MASTER & EDIT BAHAN ---
-if nav == "Master & Edit Bahan":
-    st.title("📂 Database Management (Fix File Error)")
+# --- MODUL 1: DATABASE ---
+if nav == "Database & Harga":
+    st.title("📂 Database Bahan Baku Nasional")
+    st.info("Edit kolom 'harga' langsung pada tabel untuk menghitung HPP.")
     
-    with st.expander("📥 Import Data Baru (CSV/Excel)"):
-        uploaded_file = st.file_uploader("Upload file template Anda", type=["csv", "xlsx"])
-        if uploaded_file:
-            try:
-                # Membaca file
-                if uploaded_file.name.endswith('.csv'):
-                    df_new = pd.read_csv(uploaded_file)
-                else:
-                    df_new = pd.read_excel(uploaded_file)
-                
-                # --- PROSES PEMBERSIHAN KOLOM (MANDATORY) ---
-                # 1. Hapus spasi di awal/akhir nama kolom & buat huruf kecil
-                df_new.columns = df_new.columns.str.strip().str.lower()
-                # 2. Hapus karakter pindah baris (\n) jika ada di nama kolom
-                df_new.columns = df_new.columns.str.replace('\n', ' ', regex=True)
-                
-                # --- MAPPING KOLOM OTOMATIS ---
-                # Memastikan kolom penting ada, jika tidak ada dibuatkan default 0
-                essential_cols = {
-                    "nama": "Unknown Item",
-                    "kalori": 0, "protein": 0, "lemak": 0, "karbo": 0, "bdd": 100,
-                    "satuan_beli_uom": "Kg",
-                    "berat_bersih_per_uom_gr": 1000,
-                    "harga_beli_per_uom": 0
-                }
-                
-                for col, default_val in essential_cols.items():
-                    if col not in df_new.columns:
-                        df_new[col] = default_val
-                
-                # Bersihkan isi data (NaN jadi 0, hapus spasi di nama bahan)
-                df_new['nama'] = df_new['nama'].astype(str).str.replace('\n', ' ', regex=True).str.strip()
-                df_new = df_new.fillna(0)
+    # Editor tabel untuk update harga secara fleksibel
+    edited_df = st.data_editor(
+        st.session_state.db_bahan,
+        column_config={
+            "harga": st.column_config.NumberColumn("Harga Beli (Rp)", format="Rp %d"),
+            "uom": "Satuan",
+            "berat": "Berat Bersih (gr)",
+            "bdd": "BDD %"
+        },
+        use_container_width=True,
+        num_rows="dynamic"
+    )
+    
+    if st.button("💾 Simpan Perubahan Data"):
+        st.session_state.db_bahan = edited_df.fillna(0)
+        st.success("Database berhasil diperbarui!")
 
-                if st.button("🚀 Sinkronkan Data"):
-                    st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
-                    st.success("Data berhasil dibersihkan dan disinkronkan!")
-                    st.rerun()
-            except Exception as e:
-                st.error(f"Gagal memproses file: {e}")
-
-    # --- TABEL EDITABLE ---
-    if not st.session_state.db_bahan.empty:
-        st.subheader("📝 Edit & Lengkapi Data")
-        edited_df = st.data_editor(st.session_state.db_bahan, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Simpan Perubahan"):
-            st.session_state.db_bahan = edited_df.fillna(0)
-            st.success("Data Tersimpan!")
-    else:
-        st.info("Upload file CSV/Excel untuk mengisi database.")
-
-# --- MODUL 2: MASTER ITEM (SINGLE MENU) ---
+# --- MODUL 2: SINGLE MENU ---
 elif nav == "Master Item (Single Menu)":
     st.title("🍳 Pembuatan Single Menu")
-    if st.session_state.db_bahan.empty:
-        st.warning("Database Kosong.")
-    else:
-        with st.form("form_item"):
-            nama_m = st.text_input("Nama Item Master (Menu)")
-            pilih_b = st.multiselect("Pilih Komponen Bahan", st.session_state.db_bahan['nama'].tolist())
-            st.form_submit_button("Lanjut")
-            
-        if pilih_b:
-            total = {'kal': 0.0, 'pro': 0.0, 'lem': 0.0, 'kar': 0.0, 'cost': 0.0}
-            with st.form("form_porsi"):
-                for b in pilih_b:
-                    # Ambil row secara aman
-                    row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
-                    uom = row.get('satuan_beli_uom', 'unit')
-                    qty = st.number_input(f"Jumlah {b} ({uom})", min_value=0.0, step=0.01, key=f"key_{b}")
-                    
-                    # Kalkulasi
-                    try:
-                        berat_dasar = float(row.get('berat_bersih_per_uom_gr', 1000))
-                        bdd_fac = float(row.get('bdd', 100)) / 100
-                        # Nutrisi per 100g ke total berat beli
-                        ratio = (berat_dasar / 100) * bdd_fac
-                        
-                        total['kal'] += float(row.get('kalori', 0)) * ratio * qty
-                        total['pro'] += float(row.get('protein', 0)) * ratio * qty
-                        total['lem'] += float(row.get('lemak', 0)) * ratio * qty
-                        total['kar'] += float(row.get('karbo', 0)) * ratio * qty
-                        total['cost'] += float(row.get('harga_beli_per_uom', 0)) * qty
-                    except:
-                        pass
+    
+    with st.form("form_item"):
+        nama_m = st.text_input("Nama Menu")
+        pilih_b = st.multiselect("Pilih Komponen Bahan", st.session_state.db_bahan['nama'].tolist())
+        submit_pilih = st.form_submit_button("Lanjut")
+    
+    if pilih_b:
+        total = {'kal': 0.0, 'pro': 0.0, 'lem': 0.0, 'kar': 0.0, 'cost': 0.0}
+        with st.form("form_porsi"):
+            for b in pilih_b:
+                row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
+                qty = st.number_input(f"Porsi {b} ({row['uom']})", min_value=0.0, step=0.01)
                 
-                if st.form_submit_button("Simpan Menu"):
-                    st.session_state.db_menu.append({"nama_menu": nama_m, "total_kalori": total['kal'], "total_hpp": total['cost']})
-                    st.success(f"Menu {nama_m} Tersimpan!")
+                # Kalkulasi: (Dasar/100) * Berat_UOM * BDD_Fac * Qty
+                ratio = (row['berat'] / 100) * (row['bdd'] / 100)
+                total['kal'] += row['kalori'] * ratio * qty
+                total['pro'] += row['protein'] * ratio * qty
+                total['lem'] += row['lemak'] * ratio * qty
+                total['kar'] += row['karbo'] * ratio * qty
+                total['cost'] += row['harga'] * qty
+            
+            if st.form_submit_button("Simpan Menu"):
+                st.session_state.db_menu.append({
+                    "nama": nama_m, "kal": total['kal'], "pro": total['pro'], 
+                    "lem": total['lem'], "kar": total['kar'], "hpp": total['cost']
+                })
+                st.success(f"Menu '{nama_m}' tersimpan!")
 
 # --- MODUL 3: SET MENU ---
 elif nav == "Set Menu (Paket)":
-    st.title("🍱 Gabungkan Menu Menjadi Paket")
+    st.title("🍱 Set Menu (Paket)")
     if not st.session_state.db_menu:
-        st.info("Buat Item Master (Single Menu) terlebih dahulu.")
+        st.warning("Belum ada Master Item.")
     else:
         nama_p = st.text_input("Nama Paket")
-        pilih_item = st.multiselect("Pilih Menu Satuan", [m['nama_menu'] for m in st.session_state.db_menu])
+        pilihan = st.multiselect("Pilih Item Master", [m['nama'] for m in st.session_state.db_menu])
         
-        if pilih_item:
-            tot = {'k':0, 'p':0, 'l':0, 'ka':0, 'h':0}
-            for pi in pilih_item:
-                dm = next(item for item in st.session_state.db_menu if item["nama_menu"] == pi)
-                tot['k'] += dm['total_kalori']; tot['p'] += dm['total_protein']
-                tot['l'] += dm['total_lemak']; tot['ka'] += dm['total_karbo']
-                tot['h'] += dm['total_hpp']
+        if pilihan:
+            set_res = {'kal': 0, 'pro': 0, 'lem': 0, 'kar': 0, 'hpp': 0}
+            for p in pilihan:
+                m_data = next(item for item in st.session_state.db_menu if item["nama"] == p)
+                set_res['kal'] += m_data['kal']; set_res['pro'] += m_data['pro']
+                set_res['lem'] += m_data['lem']; set_res['kar'] += m_data['kar']
+                set_res['hpp'] += m_data['hpp']
             
             st.divider()
             c1, c2, c3 = st.columns(3)
-            c1.metric("Total Energi", f"{tot['k']:.0f} kkal")
-            c2.metric("Total HPP", f"Rp {tot['h']:,.0f}")
-            c3.metric("Harga Jual (FC 30%)", f"Rp {tot['h']/0.3:,.0f}")
-
-# --- MODUL 4: DASHBOARD ---
-elif nav == "Dashboard":
-    st.title("📊 Analisis Data")
-    if st.session_state.db_menu:
-        st.table(pd.DataFrame(st.session_state.db_menu))
-    else:
-        st.info("Belum ada data menu untuk dianalisis.")
+            c1.metric("Energi", f"{set_res['kal']:.0f} kkal")
+            c2.metric("HPP", f"Rp {set_res['hpp']:,.0f}")
+            c3.metric("Harga Jual (FC 30%)", f"Rp {set_res['hpp']/0.3:,.0f}")
+            
+            fig = px.pie(values=[set_res['pro'], set_res['lem'], set_res['kar']], 
+                         names=['Protein', 'Lemak', 'Karbo'], title="Komposisi Gizi")
+            st.plotly_chart(fig)
