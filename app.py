@@ -1,80 +1,93 @@
 import streamlit as st
 import pandas as pd
-import os
+import plotly.express as px
 
-# --- KONFIGURASI ---
+# --- KONFIGURASI HALAMAN ---
 st.set_page_config(page_title="NutriCost Pro 1500+", layout="wide")
-DB_FILE = "database_bahan.csv"
-
-# --- FUNGSI LOAD & SAVE DATA ---
-def load_data():
-    if os.path.exists(DB_FILE):
-        return pd.read_csv(DB_FILE)
-    else:
-        # Template awal jika file belum ada
-        return pd.DataFrame(columns=[
-            "nama", "kalori", "protein", "lemak", "karbo", "bdd", 
-            "uom", "berat_gr", "harga"
-        ])
-
-def save_data(df):
-    df.to_csv(DB_FILE, index=False)
 
 # --- INISIALISASI DATABASE ---
 if 'db_bahan' not in st.session_state:
-    st.session_state.db_bahan = load_data()
+    # Memasukkan beberapa data awal agar aplikasi tidak kosong
+    initial_data = [
+        {"nama": "Beras giling, mentah", "kalori": 357, "protein": 8.4, "lemak": 1.7, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
+        {"nama": "Ayam Paha", "kalori": 165, "protein": 31, "lemak": 3.6, "karbo": 0, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 55000}
+    ]
+    st.session_state.db_bahan = pd.DataFrame(initial_data)
+
+if 'db_menu' not in st.session_state:
+    st.session_state.db_menu = []
 
 # --- SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost Scalable")
-nav = st.sidebar.radio("Navigasi", ["Data Master (1500+)", "Tambah/Import Massal", "Buat Menu"])
+st.sidebar.title("NutriCost Scalable v7.0")
+nav = st.sidebar.radio("Navigasi", ["Data Master & Harga", "Upload Database Massal", "Buat Menu Satuan", "Set Menu (Paket)"])
 
-# --- MODUL 1: DATA MASTER ---
-if nav == "Data Master (1500+)":
+# --- MODUL 1: DATA MASTER & HARGA ---
+if nav == "Data Master & Harga":
     st.title("📂 Database Bahan Baku")
-    st.write(f"Total Item Saat Ini: {len(st.session_state.db_bahan)}")
+    st.write(f"Total Database: {len(st.session_state.db_bahan)} item")
     
-    # Gunakan fitur pencarian agar mudah menemukan item dari 1500 data
-    search = st.text_input("🔍 Cari Nama Bahan...")
-    df_display = st.session_state.db_bahan
-    if search:
-        df_display = df_display[df_display['nama'].str.contains(search, case=False)]
+    # Fitur Pencarian untuk memudahkan navigasi 1500 item
+    search_query = st.text_input("🔍 Cari Bahan (Contoh: Beras, Cabai, Bawang...)")
+    
+    df_to_edit = st.session_state.db_bahan
+    if search_query:
+        df_to_edit = df_to_edit[df_to_edit['nama'].str.contains(search_query, case=False)]
 
-    edited_df = st.data_editor(df_display, use_container_width=True, num_rows="dynamic")
+    st.info("Anda bisa mengedit harga langsung pada tabel di bawah ini.")
+    edited_df = st.data_editor(
+        df_to_edit,
+        column_config={
+            "harga": st.column_config.NumberColumn("Harga Beli (Rp)", format="Rp %d"),
+            "berat": "Berat Bersih (gr)",
+            "uom": "Satuan"
+        },
+        use_container_width=True,
+        num_rows="dynamic"
+    )
     
-    if st.button("💾 Simpan Semua Perubahan"):
-        # Update session state dan simpan ke file fisik CSV
-        st.session_state.db_bahan = edited_df
-        save_data(edited_df)
-        st.success("Perubahan pada database berhasil disimpan ke sistem!")
+    if st.button("💾 Simpan Perubahan"):
+        # Menggabungkan kembali data yang diedit ke database utama
+        st.session_state.db_bahan.update(edited_df)
+        st.success("Perubahan berhasil disimpan ke database!")
 
-# --- MODUL 2: TAMBAH / IMPORT MASSAL ---
-elif nav == "Tambah/Import Massal":
-    st.title("📥 Menambah Kapasitas Database")
+# --- MODUL 2: UPLOAD DATABASE MASSAL ---
+elif nav == "Upload Database Massal":
+    st.title("📥 Import Database (Scale-Up)")
+    st.markdown("""
+    Gunakan modul ini untuk menambah hingga ribuan data sekaligus. 
+    **Pastikan file CSV/Excel memiliki kolom:** `nama, kalori, protein, lemak, karbo, bdd, uom, berat, harga`.
+    """)
     
-    tab1, tab2 = st.tabs(["Upload Excel/CSV", "Input Manual"])
+    up_file = st.file_uploader("Pilih File Master Nutrisi", type=["csv", "xlsx"])
     
-    with tab1:
-        st.subheader("Import Ribuan Data Sekaligus")
-        up_file = st.file_uploader("Upload file database baru", type=["csv", "xlsx"])
-        if up_file:
-            df_new = pd.read_csv(up_file) if up_file.name.endswith('.csv') else pd.read_excel(up_file)
-            if st.button("Gabungkan ke Master"):
-                combined = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'])
-                st.session_state.db_bahan = combined
-                save_data(combined)
-                st.success(f"Database kini berjumlah {len(combined)} item!")
-
-    with tab2:
-        st.subheader("Tambah Satu Per Satu")
-        with st.form("tambah_satu"):
-            n = st.text_input("Nama Bahan")
-            c1, c2, c3 = st.columns(3)
-            kal = c1.number_input("Kalori")
-            pro = c2.number_input("Protein")
-            har = c3.number_input("Harga")
-            if st.form_submit_button("Simpan"):
-                # Logika tambah data manual ke session state
-                st.info("Fitur tambah manual aktif.")
+    if up_file:
+        try:
+            if up_file.name.endswith('.csv'):
+                df_new = pd.read_csv(up_file)
+            else:
+                df_new = pd.read_excel(up_file)
+            
+            # --- CLEANING DATA ---
+            # Kecilkan semua nama kolom dan hapus spasi/karakter pindah baris
+            df_new.columns = df_new.columns.str.strip().str.lower().str.replace('\n', ' ')
+            # Bersihkan isi kolom nama dari karakter unik
+            df_new['nama'] = df_new['nama'].astype(str).str.replace('\n', ' ').str.strip()
+            # Isi sel kosong dengan 0
+            df_new = df_new.fillna(0)
+            
+            st.subheader("Preview Data yang Akan Di-import")
+            st.dataframe(df_new.head(10))
+            
+            if st.button("🚀 Konfirmasi Gabungkan ke Database Utama"):
+                # Menggabungkan data lama dengan data baru
+                combined = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True)
+                # Hapus duplikat berdasarkan nama agar tidak ganda
+                st.session_state.db_bahan = combined.drop_duplicates(subset=['nama'], keep='last')
+                st.success(f"Berhasil! Database sekarang berjumlah {len(st.session_state.db_bahan)} item.")
+                st.balloons()
+        
+        except Exception as e:
+            st.error(f"Gagal memproses file: {e}")
 
 # --- MODUL 3: SET MENU ---
 elif nav == "Set Menu (Paket)":
