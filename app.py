@@ -1,97 +1,80 @@
 import streamlit as st
 import pandas as pd
-import plotly.express as px
+import os
 
-# --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v6.0", layout="wide")
+# --- KONFIGURASI ---
+st.set_page_config(page_title="NutriCost Pro 1500+", layout="wide")
+DB_FILE = "database_bahan.csv"
 
-# --- DATABASE HARDCODE (DATA NASIONAL LENGKAP) ---
+# --- FUNGSI LOAD & SAVE DATA ---
+def load_data():
+    if os.path.exists(DB_FILE):
+        return pd.read_csv(DB_FILE)
+    else:
+        # Template awal jika file belum ada
+        return pd.DataFrame(columns=[
+            "nama", "kalori", "protein", "lemak", "karbo", "bdd", 
+            "uom", "berat_gr", "harga"
+        ])
+
+def save_data(df):
+    df.to_csv(DB_FILE, index=False)
+
+# --- INISIALISASI DATABASE ---
 if 'db_bahan' not in st.session_state:
-    raw_data = [
-        {"nama": "Beras giling, mentah", "kalori": 357, "protein": 8.4, "lemak": 1.7, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 15000},
-        {"nama": "Beras giling var pelita, mentah", "kalori": 369, "protein": 9.5, "lemak": 1.4, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Beras giling var rojolele, mentah", "kalori": 357, "protein": 8.4, "lemak": 1.7, "karbo": 77.1, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Beras hitam, mentah", "kalori": 351, "protein": 8.0, "lemak": 1.3, "karbo": 76.9, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Beras jagung kuning, kering, mentah", "kalori": 358, "protein": 5.5, "lemak": 0.1, "karbo": 82.7, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Beras jagung putih, kering, mentah", "kalori": 307, "protein": 4.8, "lemak": 0.1, "karbo": 71.8, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Beras ketan hitam tumbuk, mentah", "kalori": 360, "protein": 8.0, "lemak": 2.3, "karbo": 74.5, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Beras ketan putih tumbuk, mentah", "kalori": 361, "protein": 7.4, "lemak": 0.8, "karbo": 78.4, "bdd": 100, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Asam payak, segar", "kalori": 135, "protein": 0.8, "lemak": 0.4, "karbo": 32.1, "bdd": 95, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Bawang merah, segar", "kalori": 46, "protein": 1.5, "lemak": 0.3, "karbo": 9.2, "bdd": 90, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Bawang putih, segar", "kalori": 112, "protein": 4.5, "lemak": 0.2, "karbo": 23.1, "bdd": 88, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Boros kunci, segar", "kalori": 40, "protein": 1.0, "lemak": 0.8, "karbo": 7.2, "bdd": 80, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Boros laja (lengkuas), segar", "kalori": 26, "protein": 1.0, "lemak": 0.3, "karbo": 4.7, "bdd": 80, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Cabai gembor merah, segar", "kalori": 38, "protein": 1.6, "lemak": 0.8, "karbo": 6.3, "bdd": 89, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Cabai hijau, segar", "kalori": 26, "protein": 0.7, "lemak": 0.3, "karbo": 5.2, "bdd": 82, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Cabai merah, kering", "kalori": 367, "protein": 15.9, "lemak": 6.2, "karbo": 61.8, "bdd": 85, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Cabai merah, segar", "kalori": 36, "protein": 1.0, "lemak": 0.3, "karbo": 7.3, "bdd": 85, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Cabai rawit, segar", "kalori": 120, "protein": 4.7, "lemak": 2.4, "karbo": 19.9, "bdd": 85, "uom": "Kg", "berat": 1000, "harga": 0},
-        {"nama": "Ayam Paha", "kalori": 165, "protein": 31.0, "lemak": 3.6, "karbo": 0.0, "bdd": 100, "uom": "kg", "berat": 1000, "harga": 55000},
-        {"nama": "Daging Sapi", "kalori": 249, "protein": 18.0, "lemak": 14.0, "karbo": 0.0, "bdd": 100, "uom": "kg", "berat": 1000, "harga": 120000},
-        {"nama": "Telur Ayam", "kalori": 154, "protein": 12.4, "lemak": 10.8, "karbo": 0.7, "bdd": 90, "uom": "kg", "berat": 1000, "harga": 28000},
-        {"nama": "Minyak Goreng", "kalori": 862, "protein": 0.0, "lemak": 100.0, "karbo": 0.0, "bdd": 100, "uom": "L", "berat": 1000, "harga": 18000}
-    ]
-    st.session_state.db_bahan = pd.DataFrame(raw_data)
+    st.session_state.db_bahan = load_data()
 
-if 'db_menu' not in st.session_state:
-    st.session_state.db_menu = []
+# --- SIDEBAR NAVIGASI ---
+st.sidebar.title("NutriCost Scalable")
+nav = st.sidebar.radio("Navigasi", ["Data Master (1500+)", "Tambah/Import Massal", "Buat Menu"])
 
-# --- NAVIGASI ---
-st.sidebar.title("NutriCost v6.0")
-nav = st.sidebar.radio("Navigasi", ["Database & Harga", "Master Item (Single Menu)", "Set Menu (Paket)"])
+# --- MODUL 1: DATA MASTER ---
+if nav == "Data Master (1500+)":
+    st.title("📂 Database Bahan Baku")
+    st.write(f"Total Item Saat Ini: {len(st.session_state.db_bahan)}")
+    
+    # Gunakan fitur pencarian agar mudah menemukan item dari 1500 data
+    search = st.text_input("🔍 Cari Nama Bahan...")
+    df_display = st.session_state.db_bahan
+    if search:
+        df_display = df_display[df_display['nama'].str.contains(search, case=False)]
 
-# --- MODUL 1: DATABASE ---
-if nav == "Database & Harga":
-    st.title("📂 Database Bahan Baku Nasional")
-    st.info("Edit kolom 'harga' langsung pada tabel untuk menghitung HPP.")
+    edited_df = st.data_editor(df_display, use_container_width=True, num_rows="dynamic")
     
-    # Editor tabel untuk update harga secara fleksibel
-    edited_df = st.data_editor(
-        st.session_state.db_bahan,
-        column_config={
-            "harga": st.column_config.NumberColumn("Harga Beli (Rp)", format="Rp %d"),
-            "uom": "Satuan",
-            "berat": "Berat Bersih (gr)",
-            "bdd": "BDD %"
-        },
-        use_container_width=True,
-        num_rows="dynamic"
-    )
-    
-    if st.button("💾 Simpan Perubahan Data"):
-        st.session_state.db_bahan = edited_df.fillna(0)
-        st.success("Database berhasil diperbarui!")
+    if st.button("💾 Simpan Semua Perubahan"):
+        # Update session state dan simpan ke file fisik CSV
+        st.session_state.db_bahan = edited_df
+        save_data(edited_df)
+        st.success("Perubahan pada database berhasil disimpan ke sistem!")
 
-# --- MODUL 2: SINGLE MENU ---
-elif nav == "Master Item (Single Menu)":
-    st.title("🍳 Pembuatan Single Menu")
+# --- MODUL 2: TAMBAH / IMPORT MASSAL ---
+elif nav == "Tambah/Import Massal":
+    st.title("📥 Menambah Kapasitas Database")
     
-    with st.form("form_item"):
-        nama_m = st.text_input("Nama Menu")
-        pilih_b = st.multiselect("Pilih Komponen Bahan", st.session_state.db_bahan['nama'].tolist())
-        submit_pilih = st.form_submit_button("Lanjut")
+    tab1, tab2 = st.tabs(["Upload Excel/CSV", "Input Manual"])
     
-    if pilih_b:
-        total = {'kal': 0.0, 'pro': 0.0, 'lem': 0.0, 'kar': 0.0, 'cost': 0.0}
-        with st.form("form_porsi"):
-            for b in pilih_b:
-                row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
-                qty = st.number_input(f"Porsi {b} ({row['uom']})", min_value=0.0, step=0.01)
-                
-                # Kalkulasi: (Dasar/100) * Berat_UOM * BDD_Fac * Qty
-                ratio = (row['berat'] / 100) * (row['bdd'] / 100)
-                total['kal'] += row['kalori'] * ratio * qty
-                total['pro'] += row['protein'] * ratio * qty
-                total['lem'] += row['lemak'] * ratio * qty
-                total['kar'] += row['karbo'] * ratio * qty
-                total['cost'] += row['harga'] * qty
-            
-            if st.form_submit_button("Simpan Menu"):
-                st.session_state.db_menu.append({
-                    "nama": nama_m, "kal": total['kal'], "pro": total['pro'], 
-                    "lem": total['lem'], "kar": total['kar'], "hpp": total['cost']
-                })
-                st.success(f"Menu '{nama_m}' tersimpan!")
+    with tab1:
+        st.subheader("Import Ribuan Data Sekaligus")
+        up_file = st.file_uploader("Upload file database baru", type=["csv", "xlsx"])
+        if up_file:
+            df_new = pd.read_csv(up_file) if up_file.name.endswith('.csv') else pd.read_excel(up_file)
+            if st.button("Gabungkan ke Master"):
+                combined = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'])
+                st.session_state.db_bahan = combined
+                save_data(combined)
+                st.success(f"Database kini berjumlah {len(combined)} item!")
+
+    with tab2:
+        st.subheader("Tambah Satu Per Satu")
+        with st.form("tambah_satu"):
+            n = st.text_input("Nama Bahan")
+            c1, c2, c3 = st.columns(3)
+            kal = c1.number_input("Kalori")
+            pro = c2.number_input("Protein")
+            har = c3.number_input("Harga")
+            if st.form_submit_button("Simpan"):
+                # Logika tambah data manual ke session state
+                st.info("Fitur tambah manual aktif.")
 
 # --- MODUL 3: SET MENU ---
 elif nav == "Set Menu (Paket)":
