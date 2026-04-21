@@ -4,9 +4,9 @@ import plotly.express as px
 import os
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost ERP v14.5", layout="wide")
+st.set_page_config(page_title="NutriCost ERP v15.0", layout="wide")
 
-# --- 1. SISTEM PENYIMPANAN DATA (ANTI-BLANK) ---
+# --- 1. FUNGSI PERSISTENSI DATA ---
 def load_data_safe(file_name, columns):
     if os.path.exists(file_name):
         try:
@@ -21,7 +21,7 @@ def load_data_safe(file_name, columns):
 def save_data_safe(df, file_name):
     df.to_csv(file_name, index=False)
 
-# --- 2. INISIALISASI DATABASE ---
+# --- 2. INISIALISASI DATABASE (4 TIER) ---
 cols_rm = ["nama", "kalori", "protein", "lemak", "karbo", "bdd", "uom", "berat", "harga"]
 cols_master = ["nama", "berat_porsi_gr", "kal_porsi", "pro_porsi", "lem_porsi", "kar_porsi", "hpp_porsi"]
 cols_paket = ["nama_paket", "rincian_isi", "total_hpp", "total_kalori", "pro_total", "lem_total", "kar_total"]
@@ -35,20 +35,21 @@ if 'db_fg' not in st.session_state:
 if 'db_paket' not in st.session_state:
     st.session_state.db_paket = load_data_safe("db_paket.csv", cols_paket)
 
-# --- 3. HELPER KALKULASI GIZI ---
-def calc_nutrition(qty, row, source_type='RM'):
+# --- 3. HELPER KALKULASI GIZI PRESISI ---
+def calc_nutri(qty, row, source_type='RM'):
     try:
         if source_type == 'RM':
             gr_mentah = qty * float(row['berat'])
             factor = (gr_mentah / 100) * (float(row['bdd']) / 100)
             return {'k': float(row['kalori'])*factor, 'p': float(row['protein'])*factor, 'l': float(row['lemak'])*factor, 'ka': float(row['karbo'])*factor, 'h': float(row['harga'])*qty, 'g': gr_mentah}
-        else: # Untuk WIP atau FG (sudah per porsi)
-            return {'k': float(row['kal_porsi'])*qty, 'p': float(row['pro_porsi'])*qty, 'l': float(row['lem_porsi'])*qty, 'ka': float(row['kar_porsi'])*qty, 'h': float(row['hpp_porsi'])*qty, 'g': float(row['berat_porsi_gr'])*qty}
+        else: # WIP atau FG
+            ratio = qty # Qty di sini adalah pengali porsi (misal 0.5 porsi)
+            return {'k': float(row['kal_porsi'])*ratio, 'p': float(row['pro_porsi'])*ratio, 'l': float(row['lem_porsi'])*ratio, 'ka': float(row['kar_porsi'])*ratio, 'h': float(row['hpp_porsi'])*ratio, 'g': float(row['berat_porsi_gr'])*ratio}
     except: return {'k':0, 'p':0, 'l':0, 'ka':0, 'h':0, 'g':0}
 
 # --- 4. SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost ERP v14.5")
-nav = st.sidebar.radio("Pilih Modul", [
+st.sidebar.title("NutriCost ERP v15.0")
+nav = st.sidebar.radio("Navigasi Utama", [
     "📦 1. Database Bahan Baku (RM)", 
     "📥 2. Upload Master Data",
     "🍳 3. Master Resep (WIP)", 
@@ -56,27 +57,21 @@ nav = st.sidebar.radio("Pilih Modul", [
     "🛒 5. Set Menu (Paket)"
 ])
 
-# --- MODUL 1: DATABASE BAHAN ---
+# --- MODUL 1 & 2 (Database & Upload) ---
 if nav == "📦 1. Database Bahan Baku (RM)":
-    st.title("📂 Database Bahan Baku (Raw Material)")
-    edited = st.data_editor(st.session_state.db_bahan, use_container_width=True, num_rows="dynamic", key="ed_rm_v14")
-    if st.button("💾 Simpan Perubahan Bahan"):
+    st.title("📂 Database Bahan Baku")
+    edited = st.data_editor(st.session_state.db_bahan, use_container_width=True, num_rows="dynamic")
+    if st.button("💾 Simpan Perubahan RM"):
         st.session_state.db_bahan = edited.fillna(0)
-        save_data_safe(st.session_state.db_bahan, "db_bahan.csv")
-        st.success("Database RM Diperbarui!")
+        save_data_safe(st.session_state.db_bahan, "db_bahan.csv"); st.success("Tersimpan!")
 
-# --- MODUL 2: UPLOAD DATA ---
 elif nav == "📥 2. Upload Master Data":
     st.title("📥 Upload Database Massal")
-    up = st.file_uploader("Pilih file CSV/Excel", type=["csv", "xlsx"])
+    up = st.file_uploader("Upload file", type=["csv", "xlsx"])
     if up and st.button("🚀 Sinkronisasi"):
-        try:
-            df_new = pd.read_csv(up, sep=None, engine='python') if up.name.endswith('.csv') else pd.read_excel(up)
-            df_new.columns = df_new.columns.str.strip().str.lower().str.replace('\n', ' ')
-            st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
-            save_data_safe(st.session_state.db_bahan, "db_bahan.csv")
-            st.success("Upload Berhasil!"); st.rerun()
-        except Exception as e: st.error(f"Gagal: {e}")
+        df_new = pd.read_csv(up, sep=None, engine='python') if up.name.endswith('.csv') else pd.read_excel(up)
+        st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
+        save_data_safe(st.session_state.db_bahan, "db_bahan.csv"); st.success("Selesai!"); st.rerun()
 
 # --- MODUL 3: MASTER RESEP (WIP) ---
 elif nav == "🍳 3. Master Resep (WIP)":
@@ -132,9 +127,79 @@ elif nav == "🍱 4. Finished Goods (FG)":
     with t2:
         st.data_editor(st.session_state.db_fg, use_container_width=True, num_rows="dynamic")
 
-# --- MODUL 5: SET MENU ---
+# --- MODUL 5: SET MENU (UNIVERSAL AGGREGATOR v15.0) ---
 elif nav == "🛒 5. Set Menu (Paket)":
-    st.title("🛒 Set Menu (Universal Aggregator)")
-    # Logika menggabungkan RM, WIP, dan FG menjadi satu paket jual...
-    st.write("Gunakan database RM, WIP, dan FG untuk membuat Paket Menu.")
-    # (Struktur input mirip Modul 4 namun mencakup 3 tier)
+    st.title("🍱 Master Paket & Analisis Nutrisi")
+    
+    if "p_id" not in st.session_state: st.session_state.p_id = 0
+    
+    tab_buat, tab_master = st.tabs(["🆕 Buat Paket Jual", "🗄️ Database Paket"])
+    
+    with tab_buat:
+        if st.button("🧹 Clear Form Paket"):
+            st.session_state.p_id += 1; st.rerun()
+            
+        col1, col2 = st.columns([2,1])
+        nm_pkt = col1.text_input("Nama Paket", key=f"pnm_{st.session_state.p_id}")
+        margin = col2.slider("Food Cost (%)", 10, 50, 30, key=f"pm_{st.session_state.p_id}")
+        
+        st.markdown("#### 🔗 Hubungkan Sumber Data")
+        c_rm, c_wp, c_fg = st.columns(3)
+        sel_rm = c_rm.multiselect("Tambah RM (Mentah)", st.session_state.db_bahan['nama'].tolist(), key=f"prm_{st.session_state.p_id}")
+        sel_wp = c_wp.multiselect("Tambah WIP (Resep)", st.session_state.db_wip['nama'].tolist(), key=f"pwp_{st.session_state.p_id}")
+        sel_fg = c_fg.multiselect("Tambah FG (Produk)", st.session_state.db_fg['nama'].tolist(), key=f"pfg_{st.session_state.p_id}")
+        
+        if sel_rm or sel_wp or sel_fg:
+            st.markdown("### 📋 Analisis Rincian Isi Paket")
+            p_res = {'k':0,'p':0,'l':0,'ka':0,'h':0,'b':0,'isi':[]}
+            detail_table = []
+
+            # 1. Proses RM (Raw Material)
+            for x in sel_rm:
+                row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == x].iloc[0]
+                q_gr = st.number_input(f"Gr Mentah: {x}", min_value=0.0, key=f"pqrm_{x}_{st.session_state.p_id}")
+                d = calc_nutri(q_gr/row['berat'], row, 'RM')
+                detail_table.append({"Source": "RM", "Item": x, "Gram": q_gr, "HPP": d['h'], "Kalori": d['k']})
+                [p_res.update({k: p_res[k]+d[v]}) for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g'])]
+                p_res['isi'].append(f"{x}({q_gr}g)")
+
+            # 2. Proses WIP (Work In Process)
+            for x in sel_wp:
+                row = st.session_state.db_wip[st.session_state.db_wip['nama'] == x].iloc[0]
+                q_gr = st.number_input(f"Gr Matang: {x}", value=float(row['berat_porsi_gr']), key=f"pqwp_{x}_{st.session_state.p_id}")
+                d = calc_nutri(q_gr/row['berat_porsi_gr'], row, 'WIP')
+                detail_table.append({"Source": "WIP", "Item": x, "Gram": q_gr, "HPP": d['h'], "Kalori": d['k']})
+                [p_res.update({k: p_res[k]+d[v]}) for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g'])]
+                p_res['isi'].append(f"{x}({q_gr}g)")
+
+            # 3. Proses FG (Finished Goods)
+            for x in sel_fg:
+                row = st.session_state.db_fg[st.session_state.db_fg['nama'] == x].iloc[0]
+                q_gr = st.number_input(f"Gr Produk: {x}", value=float(row['berat_porsi_gr']), key=f"pqfg_{x}_{st.session_state.p_id}")
+                d = calc_nutri(q_gr/row['berat_porsi_gr'], row, 'FG')
+                detail_table.append({"Source": "FG", "Item": x, "Gram": q_gr, "HPP": d['h'], "Kalori": d['k']})
+                [p_res.update({k: p_res[k]+d[v]}) for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g'])]
+                p_res['isi'].append(f"{x}({q_gr}g)")
+
+            st.table(pd.DataFrame(detail_table))
+            
+            # --- ANALISIS GIZI & GRAFIK (Seperti v11.4) ---
+            st.divider()
+            m1, m2, m3 = st.columns([1,1,2])
+            with m1:
+                st.metric("Total Kalori", f"{p_res['k']:,.1f} kkal")
+                st.metric("Total HPP", f"Rp {p_res['h']:,.0f}")
+            with m2:
+                st.metric("Saran Jual", f"Rp {p_res['h']/(margin/100):,.0f}")
+                st.metric("Total Berat", f"{p_res['b']:,.1f} g")
+            with m3:
+                fig = px.pie(values=[p_res['p'], p_res['l'], p_res['ka']], names=['Protein','Lemak','Karbo'], title="Macro Ratio Paket", hole=0.4)
+                st.plotly_chart(fig, use_container_width=True)
+
+            if st.button("💾 Simpan Paket Jual"):
+                new_p = pd.DataFrame([{"nama_paket":nm_pkt, "rincian_isi":", ".join(p_res['isi']), "total_hpp":p_res['h'], "total_kalori":p_res['k'], "pro_total":p_res['p'], "lem_total":p_res['l'], "kar_total":p_res['ka']}])
+                st.session_state.db_paket = pd.concat([st.session_state.db_paket, new_p], ignore_index=True)
+                save_data_safe(st.session_state.db_paket, "db_paket.csv"); st.success("Paket Berhasil Disimpan!"); st.rerun()
+
+    with tab_master:
+        st.data_editor(st.session_state.db_paket, use_container_width=True, num_rows="dynamic")
