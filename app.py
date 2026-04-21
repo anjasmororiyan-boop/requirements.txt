@@ -3,31 +3,29 @@ import pandas as pd
 import plotly.express as px
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v10.0", layout="wide")
+st.set_page_config(page_title="NutriCost Pro v10.2", layout="wide")
 
 # --- INISIALISASI DATABASE ---
-# 1. Database Bahan Baku (Mentah)
 if 'db_bahan' not in st.session_state:
     st.session_state.db_bahan = pd.DataFrame(columns=[
         "nama", "kalori", "protein", "lemak", "karbo", "bdd", "uom", "berat", "harga"
     ])
 
-# 2. Database Master Resep (Hasil Jadi/Matang)
 if 'db_menu' not in st.session_state:
     st.session_state.db_menu = pd.DataFrame(columns=[
         "nama", "berat_porsi_gr", "kal_porsi", "pro_porsi", "lem_porsi", "kar_porsi", "hpp_porsi"
     ])
 
-# 3. Database Set Menu (Paket Gabungan)
-if 'db_paket' not in st.session_state:
-    st.session_state.db_paket = []
+# State untuk mereset form resep
+if 'reset_resep' not in st.session_state:
+    st.session_state.reset_resep = False
 
 # --- SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost Pro v10.0")
+st.sidebar.title("NutriCost Pro v10.2")
 nav = st.sidebar.radio("Navigasi", [
     "1. Data Master Bahan", 
     "2. Upload Database Bahan", 
-    "3. Buat Resep (Recipe Master)",
+    "3. Buat & Kelola Resep",
     "4. Set Menu (Paket Gabungan)"
 ])
 
@@ -41,8 +39,9 @@ if nav == "1. Data Master Bahan":
         df_display = st.session_state.db_bahan
         if search:
             df_display = df_display[df_display['nama'].str.contains(search, case=False)]
+        
         edited_df = st.data_editor(df_display, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Simpan Perubahan"):
+        if st.button("💾 Simpan Perubahan Bahan"):
             st.session_state.db_bahan = edited_df.fillna(0)
             st.success("Database bahan diperbarui!")
 
@@ -66,43 +65,81 @@ elif nav == "2. Upload Database Bahan":
                 st.rerun()
         except Exception as e: st.error(f"Error: {e}")
 
-# --- MODUL 3: BUAT RESEP (RECIPE MASTER) ---
-elif nav == "3. Buat Resep (Recipe Master)":
-    st.title("🍳 Recipe Builder & Automation")
-    tab1, tab2 = st.tabs(["📝 Buat Resep Baru", "📋 Daftar Master Resep"])
+# --- MODUL 3: BUAT & KELOLA RESEP (DENGAN FITUR RESET) ---
+elif nav == "3. Buat & Kelola Resep":
+    st.title("🍳 Recipe Builder & Master Management")
+    tab1, tab2 = st.tabs(["📝 Buat Resep Baru", "📋 Kelola Master Resep"])
     
     with tab1:
-        if st.session_state.db_bahan.empty: st.warning("Upload bahan dulu!")
+        if st.session_state.db_bahan.empty: 
+            st.warning("Upload bahan dulu!")
         else:
-            c1, c2 = st.columns(2)
-            n_resep = c1.text_input("Nama Menu")
-            p_bahan = c2.multiselect("Komponen", st.session_state.db_bahan['nama'].tolist())
-            if p_bahan:
+            # Menggunakan Form dengan key untuk reset otomatis
+            with st.form("form_resep_baru", clear_on_submit=True):
+                c1, c2 = st.columns(2)
+                n_resep = c1.text_input("Nama Menu", placeholder="Contoh: Nasi Goreng")
+                p_bahan = c2.multiselect("Pilih Komponen Bahan", st.session_state.db_bahan['nama'].tolist())
+                
+                # Container untuk rincian gramasi
+                st.markdown("#### Rincian Gramasi")
+                st.write("Silakan pilih bahan di atas, lalu isi Qty di bawah ini:")
+                
+                # Perhitungan Nutrisi & Cost
                 t_d = {'kal': 0.0, 'pro': 0.0, 'lem': 0.0, 'kar': 0.0, 'cost': 0.0, 'brt': 0.0}
-                h1, h2, h3, h4 = st.columns([3, 1, 1, 1])
-                h1.write("**Bahan**"); h2.write("**UOM**"); h3.write("**Qty**"); h4.write("**Gram**")
-                for b in p_bahan:
-                    row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
-                    c_n, c_u, c_q, c_g = st.columns([3, 1, 1, 1])
-                    c_n.write(f"🔹 {b}"); c_u.write(row.get('uom','kg'))
-                    qty = c_q.number_input(f"Q_{b}", min_value=0.0, step=0.01, key=f"r_{b}", label_visibility="collapsed")
-                    gr = qty * float(row.get('berat', 1000))
-                    c_g.write(f"{gr:,.0f} g")
-                    ratio = (float(row.get('berat',1000))/100) * (float(row.get('bdd',100))/100)
-                    t_d['kal']+=float(row.get('kalori',0))*ratio*qty; t_d['pro']+=float(row.get('protein',0))*ratio*qty
-                    t_d['lem']+=float(row.get('lemak',0))*ratio*qty; t_d['kar']+=float(row.get('karbo',0))*ratio*qty
-                    t_d['cost']+=float(row.get('harga',0))*qty; t_d['brt']+=gr
+                
+                if p_bahan:
+                    for b in p_bahan:
+                        row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
+                        c_n, c_u, c_q = st.columns([3, 1, 2])
+                        c_n.write(f"🔹 **{b}**")
+                        c_u.write(f"Satuan: {row.get('uom','kg')}")
+                        qty = c_q.number_input(f"Qty {b}", min_value=0.0, step=0.01, key=f"r_{b}")
+                        
+                        gr = qty * float(row.get('berat', 1000))
+                        ratio = (float(row.get('berat',1000))/100) * (float(row.get('bdd',100))/100)
+                        
+                        t_d['kal']+=float(row.get('kalori',0))*ratio*qty
+                        t_d['pro']+=float(row.get('protein',0))*ratio*qty
+                        t_d['lem']+=float(row.get('lemak',0))*ratio*qty
+                        t_d['kar']+=float(row.get('karbo',0))*ratio*qty
+                        t_d['cost']+=float(row.get('harga',0))*qty
+                        t_d['brt']+=gr
+                
                 st.divider()
                 y1, y2 = st.columns(2)
-                b_matang = y1.number_input("Berat Matang (gr)", value=t_d['brt'])
-                porsi = y2.number_input("Porsi", min_value=1, value=1)
-                if st.button("💾 Simpan Ke Master"):
-                    new = {"nama": n_resep, "berat_porsi_gr": b_matang/porsi, "kal_porsi": t_d['kal']/porsi, "pro_porsi": t_d['pro']/porsi, "lem_porsi": t_d['lem']/porsi, "kar_porsi": t_d['kar']/porsi, "hpp_porsi": t_d['cost']/porsi}
-                    st.session_state.db_menu = pd.concat([st.session_state.db_menu, pd.DataFrame([new])], ignore_index=True)
-                    st.success("Resep Tersimpan!")
+                b_matang = y1.number_input("Berat Matang Total (gr)", value=t_d['brt'])
+                porsi = y2.number_input("Jumlah Porsi Hasil Jadi", min_value=1, value=1)
+                
+                submit_res = st.form_submit_button("💾 Simpan Ke Master & Bersihkan Form")
+                
+                if submit_res:
+                    if not n_resep or not p_bahan:
+                        st.error("Gagal Simpan: Nama menu dan Bahan tidak boleh kosong!")
+                    else:
+                        new_data = {
+                            "nama": n_resep, 
+                            "berat_porsi_gr": b_matang/porsi, 
+                            "kal_porsi": t_d['kal']/porsi, 
+                            "pro_porsi": t_d['pro']/porsi, 
+                            "lem_porsi": t_d['lem']/porsi, 
+                            "kar_porsi": t_d['kar']/porsi, 
+                            "hpp_porsi": t_d['cost']/porsi
+                        }
+                        st.session_state.db_menu = pd.concat([st.session_state.db_menu, pd.DataFrame([new_data])], ignore_index=True)
+                        st.success(f"Resep '{n_resep}' Berhasil Disimpan! Form telah dibersihkan.")
+                        # Rerun untuk memastikan tampilan bersih kembali
+                        st.rerun()
 
     with tab2:
-        st.dataframe(st.session_state.db_menu, use_container_width=True)
+        st.subheader("📋 Daftar Master Resep Jadi")
+        if st.session_state.db_menu.empty:
+            st.info("Belum ada resep yang disimpan.")
+        else:
+            updated_menu = st.data_editor(st.session_state.db_menu, use_container_width=True, num_rows="dynamic", key="editor_resep_v10")
+            if st.button("🗑️ Konfirmasi Hapus / Update Resep"):
+                st.session_state.db_menu = updated_menu
+                st.success("Database resep diperbarui!")
+                st.rerun()
 
 # --- MODUL 4: SET MENU (PAKET GABUNGAN) ---
 elif nav == "4. Set Menu (Paket Gabungan)":
