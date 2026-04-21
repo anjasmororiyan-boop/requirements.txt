@@ -61,33 +61,35 @@ elif nav == "Upload Database Massal":
     up_file = st.file_uploader("Pilih File Master Nutrisi", type=["csv", "xlsx"])
     
     if up_file:
-        try:
-            if up_file.name.endswith('.csv'):
-                df_new = pd.read_csv(up_file)
-            else:
-                df_new = pd.read_excel(up_file)
-            
-            # --- CLEANING DATA ---
-            # Kecilkan semua nama kolom dan hapus spasi/karakter pindah baris
-            df_new.columns = df_new.columns.str.strip().str.lower().str.replace('\n', ' ')
-            # Bersihkan isi kolom nama dari karakter unik
-            df_new['nama'] = df_new['nama'].astype(str).str.replace('\n', ' ').str.strip()
-            # Isi sel kosong dengan 0
-            df_new = df_new.fillna(0)
-            
-            st.subheader("Preview Data yang Akan Di-import")
-            st.dataframe(df_new.head(10))
-            
-            if st.button("🚀 Konfirmasi Gabungkan ke Database Utama"):
-                # Menggabungkan data lama dengan data baru
-                combined = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True)
-                # Hapus duplikat berdasarkan nama agar tidak ganda
-                st.session_state.db_bahan = combined.drop_duplicates(subset=['nama'], keep='last')
-                st.success(f"Berhasil! Database sekarang berjumlah {len(st.session_state.db_bahan)} item.")
-                st.balloons()
+    try:
+        df_new = pd.read_csv(up_file) if up_file.name.endswith('.csv') else pd.read_excel(up_file)
         
-        except Exception as e:
-            st.error(f"Gagal memproses file: {e}")
+        # Bersihkan nama kolom dari spasi dan karakter aneh
+        df_new.columns = df_new.columns.str.strip().str.lower().str.replace('\n', ' ')
+        
+        # LOGIKA MAPPING OTOMATIS (Solusi untuk KeyError 'uom')
+        # Jika sistem cari 'uom' tapi di file namanya 'satuan_beli_uom', kita samakan.
+        if 'satuan_beli_uom' in df_new.columns and 'uom' not in df_new.columns:
+            df_new = df_new.rename(columns={'satuan_beli_uom': 'uom'})
+        
+        # Jika kolom 'berat' tidak ada tapi adanya 'berat_bersih_per_uom_gr'
+        if 'berat_bersih_per_uom_gr' in df_new.columns and 'berat' not in df_new.columns:
+            df_new = df_new.rename(columns={'berat_bersih_per_uom_gr': 'berat'})
+            
+        # Jika kolom 'harga' tidak ada tapi adanya 'harga_beli_per_uom'
+        if 'harga_beli_per_uom' in df_new.columns and 'harga' not in df_new.columns:
+            df_new = df_new.rename(columns={'harga_beli_per_uom': 'harga'})
+
+        # Isi data kosong dengan 0
+        df_new = df_new.fillna(0)
+        
+        if st.button("🚀 Konfirmasi Sinkronisasi"):
+            st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
+            st.success("Data Sinkron!")
+            st.rerun()
+            
+    except Exception as e:
+        st.error(f"Gagal memproses kolom: {e}")
 
 # --- MODUL 3: SET MENU ---
 elif nav == "Set Menu (Paket)":
