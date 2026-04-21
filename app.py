@@ -119,11 +119,10 @@ elif nav == "🍱 Master FG":
                 q_gr = st.number_input(f"Gram Matang {x}", value=float(row['berat_porsi_gr']), key=f"fqwp_{x}_{st.session_state.f_id}")
                 d = universal_calc(q_gr, row, 'WIP'); [res_f.update({k: res_f[k]+d[k]}) for k in res_f]
             st.divider()
-            st.info(f"Kalkulasi Gizi: {res_f['k']:.1f} kkal | HPP: Rp {res_f['h']:,.0f}")
+            st.info(f"Kalkulasi FG: {res_f['k']:.1f} kkal | HPP: Rp {res_f['h']:,.0f}")
             if st.button("💾 Simpan Master FG"):
-                new = pd.DataFrame([{"nama":nm_f, "berat_porsi_gr":res_f['g'], "kal_porsi":res_f['k'], "pro_porsi":res_f['p'], "lem_porsi":res_f['l'], "kar_porsi":res_f['ka'], "hpp_porsi":res_f['h']}])
-                st.session_state.db_fg = pd.concat([st.session_state.db_fg, new], ignore_index=True)
-                save_data_permanent(st.session_state.db_fg, "db_fg.csv"); st.session_state.f_id+=1; st.rerun()
+                new = pd.DataFrame([{"nama":nm_fg, "berat_porsi_gr":res_f['g'], "kal_porsi":res_f['k'], "pro_porsi":res_f['p'], "lem_porsi":res_f['l'], "kar_porsi":res_f['ka'], "hpp_porsi":res_f['h']}])
+                st.session_state.db_fg = pd.concat([st.session_state.db_fg, new], ignore_index=True); save_data_permanent(st.session_state.db_fg, "db_fg.csv"); st.session_state.f_id+=1; st.rerun()
 
 # --- MODUL 5: SET MENU (DENGAN CLEAR BUTTON & GRAFIK) ---
 elif nav == "🛒 Set Menu (Paket)":
