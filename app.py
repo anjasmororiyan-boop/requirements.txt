@@ -75,7 +75,29 @@ elif nav == "📥 Upload Data":
         st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
         save_data_permanent(st.session_state.db_bahan, "db_bahan.csv")
         st.success("Sinkronisasi Berhasil!"); st.rerun()
-
+# --- MODUL 3: WIP ---
+elif nav == "🍳 Master WIP":
+    st.title("🍳 Master Resep Dasar (WIP)")
+    t1, t2 = st.tabs(["📝 Formulasi WIP", "📋 Database WIP"])
+    with t1:
+        if "w_id" not in st.session_state: st.session_state.w_id = 0
+        nm_w = st.text_input("Nama WIP", key=f"wnm_{st.session_state.w_id}")
+        sel_b = st.multiselect("Pilih Bahan RM", st.session_state.db_bahan['nama'].tolist(), key=f"wsel_{st.session_state.w_id}")
+        if sel_b:
+            res_w = {'k':0,'p':0,'l':0,'ka':0,'h':0,'g':0}
+            for b in sel_b:
+                row = st.session_state.db_bahan[st.session_state.db_bahan['nama']==b].iloc[0]
+                q = st.number_input(f"Qty {b}", key=f"wq_{b}_{st.session_state.w_id}")
+                d = universal_calc(q, row, 'RM')
+                for k in res_w: res_w[k]+=d[k]
+            y = st.number_input("Yield Matang (gr)", value=max(res_w['g'], 1.0), key=f"wy_{st.session_state.w_id}")
+            if st.button("💾 Simpan Master WIP"):
+                new = pd.DataFrame([{"nama":nm_w, "berat_porsi_gr":y, "kal_porsi":res_w['k'], "pro_porsi":res_w['p'], "lem_porsi":res_w['l'], "kar_porsi":res_w['ka'], "hpp_porsi":res_w['h']}])
+                st.session_state.db_wip = pd.concat([st.session_state.db_wip, new], ignore_index=True); save_data_permanent(st.session_state.db_wip, "db_wip.csv"); st.session_state.w_id+=1; st.rerun()
+    with t2:
+        ed_wip = st.data_editor(st.session_state.db_wip, use_container_width=True, num_rows="dynamic")
+        if st.button("💾 Simpan Perubahan WIP"):
+            st.session_state.db_wip = ed_wip.fillna(0); save_data_permanent(st.session_state.db_wip, "db_wip.csv"); st.success("WIP Updated!")
 # --- MODUL 4: FG (DENGAN RESET FORM) ---
 elif nav == "🍱 Master FG":
     st.title("🍱 Master Finished Goods (FG)")
