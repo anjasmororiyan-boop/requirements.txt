@@ -4,23 +4,12 @@ import plotly.express as px
 import os
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v11.3", layout="wide")
+st.set_page_config(page_title="NutriCost Pro v11.2", layout="wide")
 
-# --- 1. FUNGSI PENYIMPANAN PERSISTEN (DIPERKUAT) ---
+# --- 1. FUNGSI PENYIMPANAN PERSISTEN ---
 def load_data(file_name, columns):
-    """Memastikan tabel tidak hilang meski file CSV bermasalah."""
     if os.path.exists(file_name):
-        try:
-            df = pd.read_csv(file_name)
-            if df.empty:
-                return pd.DataFrame(columns=columns)
-            # Pastikan semua kolom yang diperlukan ada
-            for col in columns:
-                if col not in df.columns:
-                    df[col] = 0
-            return df
-        except:
-            return pd.DataFrame(columns=columns)
+        return pd.read_csv(file_name)
     return pd.DataFrame(columns=columns)
 
 def save_data(df, file_name):
@@ -34,20 +23,7 @@ if 'db_menu' not in st.session_state:
     st.session_state.db_menu = load_data("master_resep.csv", ["nama", "berat_porsi_gr", "kal_porsi", "pro_porsi", "lem_porsi", "kar_porsi", "hpp_porsi"])
 
 if 'db_master_paket' not in st.session_state:
-    st.session_state.db_master_paket = load_data("master_paket.csv", ["nama_paket", "rincian_isi", "total_hpp", "total_kalori", "pro_total", "lem_total", "kar_total"])
-
-# --- 3. SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost Control v11.3")
-nav = st.sidebar.radio("Navigasi", ["1. Database Bahan", "2. Upload Data", "3. Master Resep", "4. Master Paket"])
-
-# --- MODUL 1: DATABASE BAHAN ---
-if nav == "1. Database Bahan":
-    st.title("📂 Database Bahan Baku")
-    edited_df = st.data_editor(st.session_state.db_bahan, use_container_width=True, num_rows="dynamic")
-    if st.button("💾 Simpan Perubahan Bahan"):
-        st.session_state.db_bahan = edited_df.fillna(0)
-        save_data(st.session_state.db_bahan, "database_bahan.csv")
-        st.success("Data bahan disimpan!")
+    st.session_state.db_master_paket = load_data("master_paket.csv", ["nama_paket", "rincian_isi", "total_hpp", "total_kalori"])
 
 # --- MODUL 3: MASTER RESEP (DENGAN RINCIAN NUTRISI) ---
 elif nav == "3. Master Resep":
