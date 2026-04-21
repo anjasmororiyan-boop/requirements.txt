@@ -98,28 +98,28 @@ elif nav == "🍳 Master WIP":
         ed_wip = st.data_editor(st.session_state.db_wip, use_container_width=True, num_rows="dynamic")
         if st.button("💾 Simpan Perubahan WIP"):
             st.session_state.db_wip = ed_wip.fillna(0); save_data_permanent(st.session_state.db_wip, "db_wip.csv"); st.success("WIP Updated!")
-# --- MODUL 4: FG (DENGAN RESET FORM) ---
 elif nav == "🍱 Master FG":
     st.title("🍱 Master Finished Goods (FG)")
-    if "f_id" not in st.session_state: st.session_state.f_id = 0
-    t1, t2 = st.tabs(["📝 Formulasi FG", "📋 Database FG"])
+    t1, t2 = st.tabs(["📝 Buat FG", "📋 Database"])
     with t1:
-        nm_f = st.text_input("Nama Produk FG", key=f"fnm_{st.session_state.f_id}")
+        if "f_id" not in st.session_state: st.session_state.f_id = 0
+        nm_f = st.text_input("Nama FG", key=f"fnm_{st.session_state.f_id}")
         c1, c2 = st.columns(2)
-        s_rm = c1.multiselect("Bahan RM", st.session_state.db_bahan['nama'].tolist(), key=f"frm_{st.session_state.f_id}")
-        s_wp = c2.multiselect("Bahan WIP", st.session_state.db_wip['nama'].tolist(), key=f"fwp_{st.session_state.f_id}")
+        s_rm = c1.multiselect("Bahan RM", st.session_state.db_bahan['nama'].tolist())
+        s_wp = c2.multiselect("Bahan WIP", st.session_state.db_wip['nama'].tolist())
         if s_rm or s_wp:
-            res_f = {'k':0.0,'p':0.0,'l':0.0,'ka':0.0,'h':0.0,'g':0.0}
+            res_f = {'k':0,'p':0,'l':0,'ka':0,'h':0,'g':0}
             for x in s_rm:
                 row = st.session_state.db_bahan[st.session_state.db_bahan['nama']==x].iloc[0]
-                q = st.number_input(f"Qty {x}", key=f"fqrm_{x}_{st.session_state.f_id}")
-                d = universal_calc(q, row, 'RM'); [res_f.update({k: res_f[k]+d[k]}) for k in res_f]
+                q = st.number_input(f"Qty {x}", key=f"fqrm_{x}"); d = universal_calc(q, row, 'RM')
+                for k in res_f: res_f[k]+=d[k]
             for x in s_wp:
                 row = st.session_state.db_wip[st.session_state.db_wip['nama']==x].iloc[0]
-                q_gr = st.number_input(f"Gram Matang {x}", value=float(row['berat_porsi_gr']), key=f"fqwp_{x}_{st.session_state.f_id}")
-                d = universal_calc(q_gr, row, 'WIP'); [res_f.update({k: res_f[k]+d[k]}) for k in res_f]
-            st.divider()
-           st.info(f"Kalkulasi FG: {res_f['k']:.1f} kkal | HPP: Rp {res_f['h']:,.0f}")
+                q_porsi = st.number_input(f"Berapa Porsi {x} matang?", value=1.0, key=f"fqwp_{x}")
+                # Kalkulasi berdasarkan jumlah porsi matang
+                d = universal_calc(q_porsi * row['berat_porsi_gr'], row, 'WIP')
+                for k in res_f: res_f[k]+=d[k]
+            st.info(f"Kalkulasi FG: {res_f['k']:.1f} kkal | HPP: Rp {res_f['h']:,.0f}")
             if st.button("💾 Simpan FG"):
                 new = pd.DataFrame([{"nama":nm_f, "berat_porsi_gr":res_f['g'], "kal_porsi":res_f['k'], "pro_porsi":res_f['p'], "lem_porsi":res_f['l'], "kar_porsi":res_f['ka'], "hpp_porsi":res_f['h']}])
                 st.session_state.db_fg = pd.concat([st.session_state.db_fg, new], ignore_index=True); save_data_permanent(st.session_state.db_fg, "db_fg.csv"); st.session_state.f_id+=1; st.rerun()
