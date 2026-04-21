@@ -174,7 +174,7 @@ elif nav == "🍱 Tahap 3: Set Menu & Analisis Harga":
             m3.metric("Saran Jual", f"Rp {p_res['h']/(margin_target/100):,.0f}")
             m4.metric("Berat Paket", f"{p_res['b']:.0f} g")
             
-            st.plotly_chart(px.pie(values=[p_res['p'], p_res['l'], p_res['ka']],
+            st.plotly_chart(px.pie(values=[p_res['p'], p_res['l'], p_res['ka']], names=['Protein', 'Lemak', 'Karbo'], title=f"Profil Gizi: {nama_pkt}"))
 
 # --- MODUL 4: SET MENU (PAKET GABUNGAN) ---
 elif nav == "4. Set Menu (Paket Gabungan)":
