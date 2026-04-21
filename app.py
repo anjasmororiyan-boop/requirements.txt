@@ -3,7 +3,7 @@ import pandas as pd
 import plotly.express as px
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v7.5", layout="wide")
+st.set_page_config(page_title="NutriCost Pro v8.0", layout="wide")
 
 # --- INISIALISASI DATABASE ---
 if 'db_bahan' not in st.session_state:
@@ -15,77 +15,60 @@ if 'db_menu' not in st.session_state:
     st.session_state.db_menu = []
 
 # --- SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost Pro v7.5")
+st.sidebar.title("NutriCost Pro v8.0")
 nav = st.sidebar.radio("Navigasi", ["Data Master & Edit", "Upload Database Baru", "Buat Menu Satuan", "Set Menu (Paket)"])
 
-# --- MODUL 1: DATA MASTER & EDIT ---
+# --- MODUL 1: DATA MASTER ---
 if nav == "Data Master & Edit":
     st.title("📂 Database Bahan Baku")
     if st.session_state.db_bahan.empty:
-        st.info("Database masih kosong. Silakan ke menu 'Upload Database Baru'.")
+        st.info("Database kosong. Silakan Upload di menu sebelah kiri.")
     else:
         search = st.text_input("🔍 Cari Bahan...")
         df_display = st.session_state.db_bahan
         if search:
             df_display = df_display[df_display['nama'].str.contains(search, case=False)]
 
-        st.subheader("Edit Data Langsung")
         edited_df = st.data_editor(df_display, use_container_width=True, num_rows="dynamic")
-        
         if st.button("💾 Simpan Perubahan"):
             st.session_state.db_bahan = edited_df.fillna(0)
-            st.success("Perubahan disimpan!")
+            st.success("Perubahan tersimpan!")
 
-# --- MODUL 2: UPLOAD DATABASE (FITUR UTAMA) ---
+# --- MODUL 2: UPLOAD (DENGAN PERBAIKAN KOLOM) ---
 elif nav == "Upload Database Baru":
     st.title("📥 Upload Master Data")
-    st.write("Gunakan menu ini untuk mengunggah file `Template_Master_NutriCost_V2.csv` Anda.")
-    
-    uploaded_file = st.file_uploader("Pilih file CSV atau Excel", type=["csv", "xlsx"])
+    uploaded_file = st.file_uploader("Pilih file CSV (Template V2)", type=["csv", "xlsx"])
     
     if uploaded_file:
         try:
-            # Membaca file dengan deteksi separator otomatis (penting untuk file Anda)
             if uploaded_file.name.endswith('.csv'):
                 df_new = pd.read_csv(uploaded_file, sep=None, engine='python')
             else:
                 df_new = pd.read_excel(uploaded_file)
 
-            # --- PEMBERSIHAN DATA ---
-            # 1. Bersihkan nama kolom (kecilkan, hapus spasi, hapus \n)
+            # Normalisasi kolom agar seragam
             df_new.columns = df_new.columns.str.strip().str.lower().str.replace('\n', ' ')
             
-            # 2. Mapping kolom jika nama berbeda (uom vs satuan_beli_uom, dll)
-            mapping = {
-                'satuan_beli_uom': 'uom',
-                'berat_bersih_per_uom_gr': 'berat',
-                'harga_beli_per_uom': 'harga'
-            }
+            # Mapping nama kolom lama ke baru
+            mapping = {'satuan_beli_uom': 'uom', 'berat_bersih_per_uom_gr': 'berat', 'harga_beli_per_uom': 'harga'}
             df_new = df_new.rename(columns=mapping)
 
-            # 3. Bersihkan isi kolom 'nama' dari karakter pindah baris
-            df_new['nama'] = df_new['nama'].astype(str).str.replace('\n', ' ').str.strip()
+            # Pastikan kolom wajib ada
+            cols = ["nama", "kalori", "protein", "lemak", "karbo", "bdd", "uom", "berat", "harga"]
+            for c in cols:
+                if c not in df_new.columns:
+                    df_new[c] = 0 if c != "uom" else "kg"
             
-            # 4. Pastikan kolom wajib ada
-            required = ["nama", "kalori", "protein", "lemak", "karbo", "bdd", "uom", "berat", "harga"]
-            for col in required:
-                if col not in df_new.columns:
-                    df_new[col] = 0 if col != "uom" else "kg"
-            
-            df_new = df_new[required].fillna(0)
-
-            st.subheader("Preview Data Terdeteksi")
-            st.dataframe(df_new.head())
+            df_new = df_new[cols].fillna(0)
 
             if st.button("🚀 Konfirmasi & Sinkronkan"):
                 st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
-                st.success(f"Berhasil mengunggah {len(df_new)} bahan!")
+                st.success("Data Sinkron!")
                 st.rerun()
-
         except Exception as e:
-            st.error(f"Gagal memproses file: {e}")
+            st.error(f"Gagal: {e}")
 
-# --- MODUL 3: BUAT MENU SATUAN ---
+# --- MODUL 3: BUAT MENU (DENGAN PROTEKSI ERROR) ---
 elif nav == "Buat Menu Satuan":
     st.title("🍳 Pembuatan Master Item (Menu)")
     if st.session_state.db_bahan.empty:
@@ -93,23 +76,31 @@ elif nav == "Buat Menu Satuan":
     else:
         with st.form("form_item"):
             nama_m = st.text_input("Nama Menu Baru")
-            pilih_b = st.multiselect("Pilih Komponen Bahan", st.session_state.db_bahan['nama'].tolist())
+            pilih_b = st.multiselect("Pilih Bahan Baku", st.session_state.db_bahan['nama'].tolist())
             st.form_submit_button("Lanjut")
         
         if pilih_b:
             total = {'kal': 0.0, 'pro': 0.0, 'lem': 0.0, 'kar': 0.0, 'cost': 0.0}
             with st.form("form_porsi"):
                 for b in pilih_b:
+                    # AMBIL DATA DENGAN AMAN (Mencegah KeyError)
                     row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
-                    qty = st.number_input(f"Jumlah {b} ({row['uom']})", min_value=0.0, step=0.01, key=f"q_{b}")
+                    
+                    # Gunakan fungsi .get() agar jika kolom tidak ada, aplikasi tidak mati
+                    uom_val = row.get('uom', 'kg')
+                    berat_val = float(row.get('berat', 1000))
+                    bdd_val = float(row.get('bdd', 100))
+                    harga_val = float(row.get('harga', 0))
+
+                    qty = st.number_input(f"Jumlah {b} ({uom_val})", min_value=0.0, step=0.01, key=f"q_{b}")
                     
                     # Kalkulasi
-                    ratio = (row['berat'] / 100) * (row['bdd'] / 100)
-                    total['kal'] += row['kalori'] * ratio * qty
-                    total['pro'] += row['protein'] * ratio * qty
-                    total['lem'] += row['lemak'] * ratio * qty
-                    total['kar'] += row['karbo'] * ratio * qty
-                    total['cost'] += row['harga'] * qty
+                    ratio = (berat_val / 100) * (bdd_val / 100)
+                    total['kal'] += float(row.get('kalori', 0)) * ratio * qty
+                    total['pro'] += float(row.get('protein', 0)) * ratio * qty
+                    total['lem'] += float(row.get('lemak', 0)) * ratio * qty
+                    total['kar'] += float(row.get('karbo', 0)) * ratio * qty
+                    total['cost'] += harga_val * qty
                 
                 if st.form_submit_button("Simpan Menu"):
                     st.session_state.db_menu.append({
