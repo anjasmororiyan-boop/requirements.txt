@@ -127,10 +127,9 @@ elif nav == "🍱 4. Finished Goods (FG)":
     with t2:
         st.data_editor(st.session_state.db_fg, use_container_width=True, num_rows="dynamic")
 
-# --- MODUL 5: SET MENU (UNIVERSAL AGGREGATOR v15.0) ---
+# --- MODUL 5: SET MENU (FIXED NULL DISPLAY) ---
 elif nav == "🛒 5. Set Menu (Paket)":
     st.title("🍱 Master Paket & Analisis Nutrisi")
-    
     if "p_id" not in st.session_state: st.session_state.p_id = 0
     
     tab_buat, tab_master = st.tabs(["🆕 Buat Paket Jual", "🗄️ Database Paket"])
@@ -143,63 +142,51 @@ elif nav == "🛒 5. Set Menu (Paket)":
         nm_pkt = col1.text_input("Nama Paket", key=f"pnm_{st.session_state.p_id}")
         margin = col2.slider("Food Cost (%)", 10, 50, 30, key=f"pm_{st.session_state.p_id}")
         
-        st.markdown("#### 🔗 Hubungkan Sumber Data")
         c_rm, c_wp, c_fg = st.columns(3)
-        sel_rm = c_rm.multiselect("Tambah RM (Mentah)", st.session_state.db_bahan['nama'].tolist(), key=f"prm_{st.session_state.p_id}")
-        sel_wp = c_wp.multiselect("Tambah WIP (Resep)", st.session_state.db_wip['nama'].tolist(), key=f"pwp_{st.session_state.p_id}")
-        sel_fg = c_fg.multiselect("Tambah FG (Produk)", st.session_state.db_fg['nama'].tolist(), key=f"pfg_{st.session_state.p_id}")
+        sel_rm = c_rm.multiselect("Tambah RM", st.session_state.db_bahan['nama'].tolist(), key=f"prm_{st.session_state.p_id}")
+        sel_wp = c_wp.multiselect("Tambah WIP", st.session_state.db_wip['nama'].tolist(), key=f"pwp_{st.session_state.p_id}")
+        sel_fg = c_fg.multiselect("Tambah FG", st.session_state.db_fg['nama'].tolist(), key=f"pfg_{st.session_state.p_id}")
         
         if sel_rm or sel_wp or sel_fg:
-            st.markdown("### 📋 Analisis Rincian Isi Paket")
-            p_res = {'k':0,'p':0,'l':0,'ka':0,'h':0,'b':0,'isi':[]}
+            p_res = {'k':0.0,'p':0.0,'l':0.0,'ka':0.0,'h':0.0,'b':0.0,'isi':[]}
             detail_table = []
 
-            # 1. Proses RM (Raw Material)
+            # Proses RM, WIP, FG dengan proteksi NULL
             for x in sel_rm:
                 row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == x].iloc[0]
-                q_gr = st.number_input(f"Gr Mentah: {x}", min_value=0.0, key=f"pqrm_{x}_{st.session_state.p_id}")
-                d = calc_nutri(q_gr/row['berat'], row, 'RM')
+                q_gr = st.number_input(f"Gram Mentah: {x}", min_value=0.0, key=f"pqrm_{x}")
+                d = calc_nutri_safe(q_gr/row['berat'], row, 'RM')
                 detail_table.append({"Source": "RM", "Item": x, "Gram": q_gr, "HPP": d['h'], "Kalori": d['k']})
-                [p_res.update({k: p_res[k]+d[v]}) for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g'])]
-                p_res['isi'].append(f"{x}({q_gr}g)")
+                for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g']): p_res[k]+=d[v]
+                p_res['isi'].append(f"{x}")
 
-            # 2. Proses WIP (Work In Process)
             for x in sel_wp:
                 row = st.session_state.db_wip[st.session_state.db_wip['nama'] == x].iloc[0]
-                q_gr = st.number_input(f"Gr Matang: {x}", value=float(row['berat_porsi_gr']), key=f"pqwp_{x}_{st.session_state.p_id}")
-                d = calc_nutri(q_gr/row['berat_porsi_gr'], row, 'WIP')
+                q_gr = st.number_input(f"Gram Matang: {x}", value=float(row['berat_porsi_gr']), key=f"pqwp_{x}")
+                d = calc_nutri_safe(q_gr, row, 'WIP')
                 detail_table.append({"Source": "WIP", "Item": x, "Gram": q_gr, "HPP": d['h'], "Kalori": d['k']})
-                [p_res.update({k: p_res[k]+d[v]}) for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g'])]
-                p_res['isi'].append(f"{x}({q_gr}g)")
+                for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g']): p_res[k]+=d[v]
+                p_res['isi'].append(f"{x}")
 
-            # 3. Proses FG (Finished Goods)
             for x in sel_fg:
                 row = st.session_state.db_fg[st.session_state.db_fg['nama'] == x].iloc[0]
-                q_gr = st.number_input(f"Gr Produk: {x}", value=float(row['berat_porsi_gr']), key=f"pqfg_{x}_{st.session_state.p_id}")
-                d = calc_nutri(q_gr/row['berat_porsi_gr'], row, 'FG')
+                q_gr = st.number_input(f"Gram Produk: {x}", value=float(row['berat_porsi_gr']), key=f"pqfg_{x}")
+                d = calc_nutri_safe(q_gr, row, 'FG')
                 detail_table.append({"Source": "FG", "Item": x, "Gram": q_gr, "HPP": d['h'], "Kalori": d['k']})
-                [p_res.update({k: p_res[k]+d[v]}) for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g'])]
-                p_res['isi'].append(f"{x}({q_gr}g)")
+                for k,v in zip(['k','p','l','ka','h','b'],['k','p','l','ka','h','g']): p_res[k]+=d[v]
+                p_res['isi'].append(f"{x}")
 
             st.table(pd.DataFrame(detail_table))
             
-            # --- ANALISIS GIZI & GRAFIK (Seperti v11.4) ---
+            # --- ANALISIS GRAFIK ---
             st.divider()
             m1, m2, m3 = st.columns([1,1,2])
-            with m1:
-                st.metric("Total Kalori", f"{p_res['k']:,.1f} kkal")
-                st.metric("Total HPP", f"Rp {p_res['h']:,.0f}")
-            with m2:
-                st.metric("Saran Jual", f"Rp {p_res['h']/(margin/100):,.0f}")
-                st.metric("Total Berat", f"{p_res['b']:,.1f} g")
+            m1.metric("Total Kalori", f"{p_res['k']:,.1f} kkal")
+            m2.metric("Total HPP", f"Rp {p_res['h']:,.0f}")
             with m3:
-                fig = px.pie(values=[p_res['p'], p_res['l'], p_res['ka']], names=['Protein','Lemak','Karbo'], title="Macro Ratio Paket", hole=0.4)
-                st.plotly_chart(fig, use_container_width=True)
-
-            if st.button("💾 Simpan Paket Jual"):
-                new_p = pd.DataFrame([{"nama_paket":nm_pkt, "rincian_isi":", ".join(p_res['isi']), "total_hpp":p_res['h'], "total_kalori":p_res['k'], "pro_total":p_res['p'], "lem_total":p_res['l'], "kar_total":p_res['ka']}])
-                st.session_state.db_paket = pd.concat([st.session_state.db_paket, new_p], ignore_index=True)
-                save_data_safe(st.session_state.db_paket, "db_paket.csv"); st.success("Paket Berhasil Disimpan!"); st.rerun()
-
-    with tab_master:
-        st.data_editor(st.session_state.db_paket, use_container_width=True, num_rows="dynamic")
+                # Pastikan pie chart tidak NULL
+                if p_res['p'] + p_res['l'] + p_res['ka'] > 0:
+                    fig = px.pie(values=[p_res['p'], p_res['l'], p_res['ka']], names=['Protein','Lemak','Karbo'], hole=0.4)
+                    st.plotly_chart(fig, use_container_width=True)
+                else:
+                    st.info("Isi gramasi untuk melihat grafik gizi.")
