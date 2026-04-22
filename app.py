@@ -73,7 +73,7 @@ st.sidebar.title("NutriCost ERP v22.0")
 nav = st.sidebar.radio("Navigasi Utama", ["📦 Database RM", "📥 Upload Data", "🍳 Master WIP", "🍱 Master FG", "🛒 Set Menu (Paket)"])
 
 # --- MODUL 4: MASTER FG (FIXED CALCULATION) ---
-elif nav == "🍱 Master FG":
+elif nav = "🍱 Master FG":
     st.title("🍱 Master Finished Goods (FG)")
     if "f_id" not in st.session_state: st.session_state.f_id = 0
     t1, t2 = st.tabs(["📝 Formulasi FG", "📋 Database FG"])
