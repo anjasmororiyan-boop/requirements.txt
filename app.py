@@ -15,9 +15,7 @@ def load_data_permanent(file_name, columns):
                 if col not in df.columns: df[col] = 0
             return df[columns]
         except: return pd.DataFrame(columns=columns)
-    df_empty = pd.DataFrame(columns=columns)
-    df_empty.to_csv(file_name, index=False)
-    return df_empty
+    return pd.DataFrame(columns=columns)
 
 def save_data_permanent(df, file_name):
     df.to_csv(file_name, index=False)
