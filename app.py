@@ -73,67 +73,49 @@ st.sidebar.title("NutriCost ERP v22.0")
 nav = st.sidebar.radio("Navigasi Utama", ["📦 Database RM", "📥 Upload Data", "🍳 Master WIP", "🍱 Master FG", "🛒 Set Menu (Paket)"])
 
 # --- MODUL 4: MASTER FG (FIXED CALCULATION) ---
-if nav == "🍱 Master FG":
+elif nav == "🍱 Master FG":
     st.title("🍱 Master Finished Goods (FG)")
     if "f_id" not in st.session_state: st.session_state.f_id = 0
     t1, t2 = st.tabs(["📝 Formulasi FG", "📋 Database FG"])
     
     with t1:
-        nm_f = st.text_input("Nama Produk FG (Produk Jadi)", key=f"fnm_{st.session_state.f_id}")
+        nm_f = st.text_input("Nama Produk Jadi", key=f"fnm_{st.session_state.f_id}")
         c1, c2 = st.columns(2)
-        s_rm = c1.multiselect("Bahan Baku Mentah (RM)", st.session_state.db_bahan['nama'].tolist(), key=f"frm_{st.session_state.f_id}")
-        s_wp = c2.multiselect("Resep Setengah Jadi (WIP)", st.session_state.db_wip['nama'].tolist(), key=f"fwp_{st.session_state.f_id}")
+        s_rm = c1.multiselect("Pilih RM", st.session_state.db_bahan['nama'].tolist(), key=f"frm_{st.session_state.f_id}")
+        s_wp = c2.multiselect("Pilih WIP", st.session_state.db_wip['nama'].tolist(), key=f"fwp_{st.session_state.f_id}")
         
         if s_rm or s_wp:
             res_f = {'k':0.0, 'p':0.0, 'l':0.0, 'ka':0.0, 'h':0.0, 'g':0.0}
-            
-            st.markdown("### 🛠️ Input Detail Komponen")
-            # Loop RM
             for x in s_rm:
                 row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == x].iloc[0]
-                q = st.number_input(f"Qty Mentah {x} ({row['uom']})", key=f"fqrm_{x}_{st.session_state.f_id}")
+                q = st.number_input(f"Qty {x}", key=f"fqrm_{x}_{st.session_state.f_id}")
                 d = universal_calc(q, row, 'RM')
                 for k in res_f: res_f[k] += d[k]
             
-            # Loop WIP
             for x in s_wp:
                 row = st.session_state.db_wip[st.session_state.db_wip['nama'] == x].iloc[0]
-                q_porsi = st.number_input(f"Jumlah Porsi WIP: {x}", value=1.0, key=f"fqwp_{x}_{st.session_state.f_id}")
+                q_porsi = st.number_input(f"Porsi {x}", value=1.0, key=f"fqwp_{x}_{st.session_state.f_id}")
                 d = universal_calc(q_porsi, row, 'WIP')
                 for k in res_f: res_f[k] += d[k]
             
             st.divider()
-            st.subheader("📊 Hasil Kalkulasi Gizi FG")
-            col_m1, col_m2, col_m3 = st.columns(3)
-            col_m1.metric("Total Energi", f"{res_f['k']:.1f} kkal")
-            col_m2.metric("Total Protein", f"{res_f['p']:.1f} g")
-            col_m3.metric("Total HPP", f"Rp {res_f['h']:,.0f}")
+            col_m1, col_m2 = st.columns(2)
+            col_m1.metric("Energi FG", f"{res_f['k']:.1f} kkal")
+            col_m2.metric("Total HPP", f"Rp {res_f['h']:,.0f}")
             
-            y_fg = st.number_input("Yield Berat Akhir Produk (gr)", value=max(res_f['g'], 1.0), key=f"fy_{st.session_state.f_id}")
+            y_fg = st.number_input("Yield Akhir (gr)", value=max(res_f['g'], 1.0), key=f"fy_{st.session_state.f_id}")
             
             if st.button("💾 Simpan Master FG"):
-                new_f = pd.DataFrame([{
-                    "nama": nm_f, 
-                    "berat_porsi_gr": y_fg, 
-                    "kal_porsi": res_f['k'], 
-                    "pro_porsi": res_f['p'], 
-                    "lem_porsi": res_f['l'], 
-                    "kar_porsi": res_f['ka'], 
-                    "hpp_porsi": res_f['h']
-                }])
+                new_f = pd.DataFrame([{"nama": nm_f, "berat_porsi_gr": y_fg, "kal_porsi": res_f['k'], "pro_porsi": res_f['p'], "lem_porsi": res_f['l'], "kar_porsi": res_f['ka'], "hpp_porsi": res_f['h']}])
                 st.session_state.db_fg = pd.concat([st.session_state.db_fg, new_f], ignore_index=True)
                 save_data_permanent(st.session_state.db_fg, "db_fg.csv")
-                st.session_state.f_id += 1 # Reset Form
-                st.success(f"Produk '{nm_f}' berhasil disimpan!"); st.rerun()
+                st.session_state.f_id += 1; st.rerun()
 
     with t2:
-        st.subheader("📋 Daftar Master Finished Goods")
+        st.subheader("Database FG")
         ed_fg = st.data_editor(st.session_state.db_fg, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Simpan Perubahan Database FG"):
-            st.session_state.db_fg = ed_fg.fillna(0)
-            save_data_permanent(st.session_state.db_fg, "db_fg.csv")
-            st.success("Database FG diperbarui!")
-
+        if st.button("Simpan Perubahan Database"):
+            st.session_state.db_fg = ed_fg.fillna(0); save_data_permanent(st.session_state.db_fg, "db_fg.csv")
 # --- MODUL 2: UPLOAD DATA (SISTEM SYNC) ---
 elif nav == "📥 Upload Data":
     st.title("📥 Upload Data Massal")
