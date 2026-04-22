@@ -4,18 +4,24 @@ import plotly.express as px
 import os
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v21.0", layout="wide")
+st.set_page_config(page_title="NutriCost Pro v22.0", layout="wide")
 
-# --- 1. SISTEM PERSISTENSI DATA ---
+# --- 1. SISTEM PERSISTENSI DATA (FIXED COLUMNS) ---
 def load_data_permanent(file_name, columns):
     if os.path.exists(file_name):
         try:
-            df = pd.read_csv(file_name).fillna(0)
+            df = pd.read_csv(file_name)
+            # Pastikan semua kolom yang diperlukan ada
             for col in columns:
-                if col not in df.columns: df[col] = 0
-            return df[columns]
-        except: return pd.DataFrame(columns=columns)
-    return pd.DataFrame(columns=columns)
+                if col not in df.columns:
+                    df[col] = 0
+            return df[columns].fillna(0)
+        except:
+            return pd.DataFrame(columns=columns)
+    # Jika file tidak ada, buat baru dengan kolom lengkap
+    df_new = pd.DataFrame(columns=columns)
+    df_new.to_csv(file_name, index=False)
+    return df_new
 
 def save_data_permanent(df, file_name):
     df.to_csv(file_name, index=False)
@@ -34,12 +40,11 @@ if 'db_fg' not in st.session_state:
 if 'db_paket' not in st.session_state:
     st.session_state.db_paket = load_data_permanent("db_paket.csv", cols_pkt)
 
-# --- 3. FUNGSI KALKULASI GIZI PRESISI (v21.0 FIXED) ---
+# --- 3. FUNGSI KALKULASI GIZI ---
 def universal_calc(qty, row, source_type='RM'):
     try:
         qty = float(qty) if qty else 0.0
         if source_type == 'RM':
-            # Kalkulasi dari bahan mentah (RM)
             gr_mentah = qty * float(row['berat'])
             factor = (gr_mentah / 100) * (float(row['bdd']) / 100)
             return {
@@ -51,8 +56,7 @@ def universal_calc(qty, row, source_type='RM'):
                 'g': gr_mentah
             }
         else:
-            # Kalkulasi dari Resep Setengah Jadi (WIP) atau FG lain
-            # qty di sini adalah jumlah porsi yang digunakan
+            # qty di sini adalah jumlah porsi matang
             return {
                 'k': float(row['kal_porsi']) * qty,
                 'p': float(row['pro_porsi']) * qty,
@@ -65,7 +69,7 @@ def universal_calc(qty, row, source_type='RM'):
         return {'k':0.0, 'p':0.0, 'l':0.0, 'ka':0.0, 'h':0.0, 'g':0.0}
 
 # --- 4. SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost ERP v21.0")
+st.sidebar.title("NutriCost ERP v22.0")
 nav = st.sidebar.radio("Navigasi Utama", ["📦 Database RM", "📥 Upload Data", "🍳 Master WIP", "🍱 Master FG", "🛒 Set Menu (Paket)"])
 
 # --- MODUL 4: MASTER FG (FIXED CALCULATION) ---
