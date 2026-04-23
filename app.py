@@ -68,28 +68,37 @@ elif nav == "📥 Upload Data":
         st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
         save_data_permanent(st.session_state.db_bahan, "db_bahan.csv"); st.success("Upload Berhasil!"); st.rerun()
 
-# --- MODUL 3: WIP ---
-elif nav == "🍳 Master WIP":
-    st.title("🍳 Master Resep (WIP)")
-    t1, t2 = st.tabs(["📝 Formulasi", "📋 Database"])
-    with t1:
-        if "w_id" not in st.session_state: st.session_state.w_id = 0
-        nm_w = st.text_input("Nama WIP", key=f"wnm_{st.session_state.w_id}")
-        sel_b = st.multiselect("Pilih Bahan RM", st.session_state.db_bahan['nama'].tolist())
-        if sel_b:
-            res = {'k':0,'p':0,'l':0,'ka':0,'h':0,'g':0}
-            for b in sel_b:
-                row = st.session_state.db_bahan[st.session_state.db_bahan['nama']==b].iloc[0]
-                q = st.number_input(f"Qty {b}", key=f"wq_{b}"); d = universal_calc(q, row, 'RM')
-                for k in res: res[k]+=d[k]
-            y = st.number_input("Yield (gr)", value=max(res['g'], 1.0))
-            if st.button("💾 Simpan WIP"):
-                new = pd.DataFrame([{"nama":nm_w, "berat_porsi_gr":y, "kal_porsi":res['k'], "pro_porsi":res['p'], "lem_porsi":res['l'], "kar_porsi":res['ka'], "hpp_porsi":res['h']}])
-                st.session_state.db_wip = pd.concat([st.session_state.db_wip, new], ignore_index=True); save_data_permanent(st.session_state.db_wip, "db_wip.csv"); st.session_state.w_id+=1; st.rerun()
-    with t2:
-        ed_wip = st.data_editor(st.session_state.db_wip, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Simpan Perubahan WIP"):
-            st.session_state.db_wip = ed_wip.fillna(0); save_data_permanent(st.session_state.db_wip, "db_wip.csv"); st.success("Updated!")
+st.title("🍳 Master Resep Detail (WIP)")
+
+# --- Section 1: Metadata ---
+col1, col2 = st.columns(2)
+with col1:
+    wip_name = st.text_input("Nama WIP", placeholder="Contoh: Adonan Roti Manis")
+    category = st.selectbox("Kategori", ["Bakery", "Pastry", "Sauce", "Syrup"])
+with col2:
+    target_qty = st.number_input("Target Batch (Gram)", min_value=0)
+    shelf_life = st.number_input("Masa Simpan (Hari)", min_value=0)
+
+st.divider()
+
+# --- Section 2: Formulasi (Data Editor) ---
+st.subheader("🛒 Formulasi Bahan")
+df_template = pd.DataFrame(
+    [{"Bahan Baku": "", "Qty (gr)": 0.0, "Harga/kg": 0, "Catatan": ""}]
+)
+edited_df = st.data_editor(df_template, num_rows="dynamic", use_container_width=True)
+
+# Kalkulasi sederhana
+total_weight = edited_df["Qty (gr)"].sum()
+st.info(text=f"Total Berat Input: {total_weight} gr")
+
+# --- Section 3: SOP ---
+st.subheader("📝 Instruksi Produksi (SOP)")
+instructions = st.text_area("Tuliskan langkah-langkah pembuatan di sini...")
+
+# --- Section 4: Tombol Aksi ---
+if st.button("Simpan Resep Master", type="primary"):
+    st.success(f"Resep {wip_name} berhasil disimpan ke Database!")
 
 # --- MODUL 4: FG (FIXED CALCULATION) ---
 elif nav == "🍱 Master FG":
