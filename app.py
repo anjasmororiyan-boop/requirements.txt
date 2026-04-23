@@ -76,13 +76,7 @@ if nav == "📦 Database RM":
         st.session_state.db_bahan = ed_rm.fillna(0)
         save_data_permanent(st.session_state.db_bahan, "db_bahan.csv")
         st.success("Data RM Tersimpan!"); st.rerun()
-elif nav == "📥 Upload Data":
-    st.title("📥 Upload Massal")
-    up = st.file_uploader("Upload CSV/Excel", type=["csv", "xlsx"])
-    if up and st.button("🚀 Sinkronisasi"):
-        df_new = pd.read_csv(up, sep=None, engine='python') if up.name.endswith('.csv') else pd.read_excel(up)
-        st.session_state.db_bahan = pd.concat([st.session_state.db_bahan, df_new], ignore_index=True).drop_duplicates(subset=['nama'], keep='last')
-        save_data_permanent(st.session_state.db_bahan, "db_bahan.csv"); st.success("Upload Berhasil!"); st.rerun()
+
 # --- MODUL 2: MASTER WIP (FIXED SAVE LOGIC) ---
 elif nav == "🍳 Master WIP":
     st.title("🍳 Master Resep Setengah Jadi (WIP)")
@@ -146,78 +140,11 @@ elif nav == "🍱 Master FG":
     with t2:
         st.data_editor(st.session_state.db_fg, use_container_width=True, num_rows="dynamic")
 
-# --- MODUL 1 & 2 (DATABASE RM & UPLOAD) ---
-if nav == "📦 Database RM":
-    st.title("📂 Database Bahan Baku")
-    ed_rm = st.data_editor(st.session_state.db_bahan, use_container_width=True, num_rows="dynamic")
-    if st.button("💾 Simpan Perubahan RM"):
-        st.session_state.db_bahan = ed_rm.fillna(0)
-        save_data_permanent(st.session_state.db_bahan, "db_bahan.csv"); st.success("Data RM Diperbarui!")
-
-
-
-st.title("🍳 Master Resep Detail (WIP)")
-
-# --- Section 1: Metadata ---
-col1, col2 = st.columns(2)
-with col1:
-    wip_name = st.text_input("Nama WIP", placeholder="Contoh: Adonan Roti Manis")
-    category = st.selectbox("Kategori", ["Bakery", "Pastry", "Sauce", "Syrup"])
-with col2:
-    target_qty = st.number_input("Target Batch (Gram)", min_value=0)
-    shelf_life = st.number_input("Masa Simpan (Hari)", min_value=0)
-
-st.divider()
-
-# --- Section 2: Formulasi (Data Editor) ---
-st.subheader("🛒 Formulasi Bahan")
-df_template = pd.DataFrame(
-    [{"Bahan Baku": "", "Qty (gr)": 0.0, "Harga/kg": 0, "Catatan": ""}]
-)
-edited_df = st.data_editor(df_template, num_rows="dynamic", use_container_width=True)
-
-# Kalkulasi sederhana
-total_weight = edited_df["Qty (gr)"].sum()
-st.info(text=f"Total Berat Input: {total_weight} gr")
-
-# --- Section 3: SOP ---
-st.subheader("📝 Instruksi Produksi (SOP)")
-instructions = st.text_area("Tuliskan langkah-langkah pembuatan di sini...")
-
-# --- Section 4: Tombol Aksi ---
-if st.button("Simpan Resep Master", type="primary"):
-    st.success(f"Resep {wip_name} berhasil disimpan ke Database!")
-
-# --- MODUL 4: FG (FIXED CALCULATION) ---
-elif nav == "🍱 Master FG":
-    st.title("🍱 Master Finished Goods (FG)")
-    t1, t2 = st.tabs(["📝 Buat FG", "📋 Database"])
-    with t1:
-        if "f_id" not in st.session_state: st.session_state.f_id = 0
-        nm_f = st.text_input("Nama FG", key=f"fnm_{st.session_state.f_id}")
-        c1, c2 = st.columns(2)
-        s_rm = c1.multiselect("Bahan RM", st.session_state.db_bahan['nama'].tolist())
-        s_wp = c2.multiselect("Bahan WIP", st.session_state.db_wip['nama'].tolist())
-        if s_rm or s_wp:
-            res_f = {'k':0,'p':0,'l':0,'ka':0,'h':0,'g':0}
-            for x in s_rm:
-                row = st.session_state.db_bahan[st.session_state.db_bahan['nama']==x].iloc[0]
-                q = st.number_input(f"Qty {x}", key=f"fqrm_{x}"); d = universal_calc(q, row, 'RM')
-                for k in res_f: res_f[k]+=d[k]
-            for x in s_wp:
-                row = st.session_state.db_wip[st.session_state.db_wip['nama']==x].iloc[0]
-                q_porsi = st.number_input(f"Berapa Porsi {x} matang?", value=1.0, key=f"fqwp_{x}")
-                # Kalkulasi berdasarkan jumlah porsi matang
-                d = universal_calc(q_porsi * row['berat_porsi_gr'], row, 'WIP')
-                for k in res_f: res_f[k]+=d[k]
-            st.info(f"Kalkulasi FG: {res_f['k']:.1f} kkal | HPP: Rp {res_f['h']:,.0f}")
-            if st.button("💾 Simpan FG"):
-                new = pd.DataFrame([{"nama":nm_f, "berat_porsi_gr":res_f['g'], "kal_porsi":res_f['k'], "pro_porsi":res_f['p'], "lem_porsi":res_f['l'], "kar_porsi":res_f['ka'], "hpp_porsi":res_f['h']}])
-                st.session_state.db_fg = pd.concat([st.session_state.db_fg, new], ignore_index=True); save_data_permanent(st.session_state.db_fg, "db_fg.csv"); st.session_state.f_id+=1; st.rerun()
-    with t2:
-        ed_fg = st.data_editor(st.session_state.db_fg, use_container_width=True, num_rows="dynamic")
-        if st.button("💾 Simpan Perubahan FG"):
-            st.session_state.db_fg = ed_fg.fillna(0); save_data_permanent(st.session_state.db_fg, "db_fg.csv"); st.success("Updated!")
+# --- MODUL 4: SET MENU ---
+elif nav == "🛒 Set Menu (Paket)":
+    st.title("🛒 Set Menu")
+    if st.button("🧹 Clear Form"): st.rerun()
+    st.dataframe(st.session_state.db_paket, use_container_width=True)
 
 # --- MODUL 5: SET MENU (COMPLETED) ---
 elif nav == "🛒 Set Menu (Paket)":
