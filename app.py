@@ -4,7 +4,7 @@ import plotly.express as px
 import os
 
 # --- KONFIGURASI HALAMAN ---
-st.set_page_config(page_title="NutriCost Pro v23.0", layout="wide")
+st.set_page_config(page_title="NutriCost ERP v24.0", layout="wide")
 
 # --- 1. SISTEM PERSISTENSI DATA ---
 def load_data_permanent(file_name, columns):
@@ -14,8 +14,7 @@ def load_data_permanent(file_name, columns):
             for col in columns:
                 if col not in df.columns: df[col] = 0
             return df[columns].fillna(0)
-        except:
-            return pd.DataFrame(columns=columns)
+        except: return pd.DataFrame(columns=columns)
     df_new = pd.DataFrame(columns=columns)
     df_new.to_csv(file_name, index=False)
     return df_new
@@ -37,7 +36,7 @@ if 'db_fg' not in st.session_state:
 if 'db_paket' not in st.session_state:
     st.session_state.db_paket = load_data_permanent("db_paket.csv", cols_pkt)
 
-# --- 3. FUNGSI KALKULASI GIZI ---
+# --- 3. FUNGSI KALKULASI GIZI (PRESISI) ---
 def universal_calc(qty, row, source_type='RM'):
     try:
         qty = float(qty) if qty else 0.0
@@ -52,7 +51,7 @@ def universal_calc(qty, row, source_type='RM'):
                 'h': float(row['harga']) * qty,
                 'g': gr_mentah
             }
-        else:
+        else: # Untuk WIP atau FG
             return {
                 'k': float(row['kal_porsi']) * qty,
                 'p': float(row['pro_porsi']) * qty,
@@ -65,7 +64,7 @@ def universal_calc(qty, row, source_type='RM'):
         return {'k':0.0, 'p':0.0, 'l':0.0, 'ka':0.0, 'h':0.0, 'g':0.0}
 
 # --- 4. SIDEBAR NAVIGASI ---
-st.sidebar.title("NutriCost ERP v23.0")
+st.sidebar.title("NutriCost ERP v24.0")
 nav = st.sidebar.radio("Navigasi", ["📦 Database RM", "🍳 Master WIP", "🍱 Master FG", "🛒 Set Menu (Paket)"])
 
 # --- MODUL 1: DATABASE RM ---
@@ -77,33 +76,56 @@ if nav == "📦 Database RM":
         save_data_permanent(st.session_state.db_bahan, "db_bahan.csv")
         st.success("Data RM Tersimpan!"); st.rerun()
 
-# --- MODUL 2: MASTER WIP (FIXED SAVE LOGIC) ---
+# --- MODUL 2: MASTER WIP (FIXED NUTRITION PREVIEW) ---
 elif nav == "🍳 Master WIP":
-    st.title("🍳 Master Resep Setengah Jadi (WIP)")
+    st.title("🍳 Master Resep Dasar (WIP)")
     if "w_id" not in st.session_state: st.session_state.w_id = 0
     t1, t2 = st.tabs(["📝 Formulasi WIP", "📋 Database WIP"])
     
     with t1:
         nm_w = st.text_input("Nama WIP", key=f"wnm_{st.session_state.w_id}")
-        sel_b = st.multiselect("Pilih Bahan RM", st.session_state.db_bahan['nama'].tolist(), key=f"wsel_{st.session_state.w_id}")
+        sel_b = st.multiselect("Pilih Bahan Baku", st.session_state.db_bahan['nama'].tolist(), key=f"wsel_{st.session_state.w_id}")
+        
         if sel_b:
             res_w = {'k':0.0, 'p':0.0, 'l':0.0, 'ka':0.0, 'h':0.0, 'g':0.0}
+            st.markdown("### 🛠️ Input Qty Bahan")
+            
             for b in sel_b:
-                row = st.session_state.db_bahan[st.session_state.db_bahan['nama']==b].iloc[0]
-                q = st.number_input(f"Qty {b} ({row['uom']})", key=f"wq_{b}_{st.session_state.w_id}")
+                row = st.session_state.db_bahan[st.session_state.db_bahan['nama'] == b].iloc[0]
+                q = st.number_input(f"Qty {b} ({row['uom']})", min_value=0.0, key=f"wq_{b}_{st.session_state.w_id}")
+                # Langsung panggil fungsi kalkulasi
                 d = universal_calc(q, row, 'RM')
                 for k in res_w: res_w[k] += d[k]
             
-            y_w = st.number_input("Yield Matang (gr)", value=max(res_w['g'], 1.0), key=f"wy_{st.session_state.w_id}")
-            st.info(f"Estimasi Gizi WIP: {res_w['k']:.1f} kkal | HPP: Rp {res_w['h']:,.0f}")
+            st.divider()
+            # Tampilan Live Preview Gizi WIP
+            st.subheader("📊 Hasil Kalkulasi Resep")
+            c1, c2, c3 = st.columns(3)
+            c1.metric("Total Energi", f"{res_w['k']:.1f} kkal")
+            c2.metric("Total HPP", f"Rp {res_w['h']:,.0f}")
+            c3.metric("Total Berat Mentah", f"{res_w['g']:.1f} g")
+            
+            y_w = st.number_input("Yield Berat Matang (gr)", value=max(res_w['g'], 1.0), key=f"wy_{st.session_state.w_id}")
             
             if st.button("💾 Simpan Master WIP"):
-                new_w = pd.DataFrame([{"nama": nm_w, "berat_porsi_gr": y_w, "kal_porsi": res_w['k'], "pro_porsi": res_w['p'], "lem_porsi": res_w['l'], "kar_porsi": res_w['ka'], "hpp_porsi": res_w['h']}])
+                new_w = pd.DataFrame([{
+                    "nama": nm_w, 
+                    "berat_porsi_gr": y_w, 
+                    "kal_porsi": res_w['k'], 
+                    "pro_porsi": res_w['p'], 
+                    "lem_porsi": res_w['l'], 
+                    "kar_porsi": res_w['ka'], 
+                    "hpp_porsi": res_w['h']
+                }])
                 st.session_state.db_wip = pd.concat([st.session_state.db_wip, new_w], ignore_index=True)
                 save_data_permanent(st.session_state.db_wip, "db_wip.csv")
-                st.session_state.w_id += 1; st.success("WIP Berhasil Disimpan!"); st.rerun()
+                st.session_state.w_id += 1 # Reset Form
+                st.success(f"WIP '{nm_w}' tersimpan!"); st.rerun()
     with t2:
-        st.data_editor(st.session_state.db_wip, use_container_width=True, num_rows="dynamic")
+        ed_w = st.data_editor(st.session_state.db_wip, use_container_width=True, num_rows="dynamic")
+        if st.button("Simpan Perubahan Database WIP"):
+            st.session_state.db_wip = ed_w.fillna(0)
+            save_data_permanent(st.session_state.db_wip, "db_wip.csv")
 
 # --- MODUL 3: MASTER FG (FIXED CALCULATION) ---
 elif nav == "🍱 Master FG":
